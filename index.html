@@ -4,141 +4,92 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Field Camera Pro</title>
 
   <style>
     :root {
       --primary: #E11D48;
       --primary-dark: #BE123C;
-      --bg-dark: #000000;
       --bg-light: #F1F5F9;
       --surface: #FFFFFF;
       --text-main: #0F172A;
       --text-sub: #64748B;
       --border: #E2E8F0;
-      --radius-lg: 24px;
-      --radius-md: 14px;
-      --shadow-md: 0 12px 32px rgba(0,0,0,0.15);
     }
     
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; user-select: none; }
-    html, body { width: 100%; height: 100%; background: var(--bg-dark); color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
-    
-    .icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    html, body { width: 100%; height: 100%; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; overscroll-behavior: none; }
     
     #app { width: 100%; height: 100dvh; display: flex; flex-direction: column; }
     
-    /* 🪟 ヘッダー (★セーフエリア対応: ノッチや時計と被らないように調整) */
-    .header { 
-      padding-top: env(safe-area-inset-top); 
-      height: calc(56px + env(safe-area-inset-top)); 
-      padding-left: max(16px, env(safe-area-inset-left));
-      padding-right: max(16px, env(safe-area-inset-right));
-      display: flex; align-items: center; justify-content: space-between; z-index: 10; flex-shrink: 0; background: var(--bg-dark); transition: all 0.3s; 
+    /* 🔴 メイン撮影領域（背景が赤＝全部シャッター） */
+    #captureArea { 
+      flex: 1; display: flex; flex-direction: column;
+      background: var(--primary); 
+      position: relative; cursor: pointer; transition: background 0.1s;
     }
-    .header.edit-mode { background: var(--surface); color: var(--text-main); border-bottom: 1px solid var(--border); }
+    #captureArea:active { background: var(--primary-dark); }
     
-    .header-logo { font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; letter-spacing: 0.03em; }
-    .red-mark { width: 6px; height: 18px; background: var(--primary); border-radius: 3px; }
-    .header-actions { display: flex; gap: 8px; align-items: center; }
-    
-    .header-btn { height: 38px; padding: 0 12px; border-radius: 10px; background: rgba(255,255,255,0.15); font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; cursor: pointer; color: #fff; border: none; transition: transform 0.15s; }
-    .header-btn:active { transform: scale(0.95); }
-    .header-btn.primary { background: var(--primary); }
-    .header.edit-mode .header-btn { background: var(--bg-light); color: var(--text-main); border: 1px solid var(--border); }
-    
-    /* =====================================
-       📷 メインコンテンツ領域
-       ===================================== */
-    #mainContent { flex: 1; display: flex; flex-direction: column; min-height: 0; transition: all 0.3s; }
-    
-    /* 🔴 外周シャッターフレーム (★左右をさらに極太化) */
-    #shutterFrame { 
-      flex: 1; 
-      display: flex; 
-      flex-direction: column; 
-      background-image: linear-gradient(135deg, var(--primary), var(--primary-dark)); 
-      /* ケース越しでも確実に押せる極太パディング */
-      padding: 44px max(38px, env(safe-area-inset-right)) calc(44px + env(safe-area-inset-bottom)) max(38px, env(safe-area-inset-left)); 
-      position: relative; 
-      cursor: pointer; 
-      transition: all 0.3s ease; 
+    /* 📸 カメラコンテナ（黒帯排除・アスペクト比連動） */
+    #cameraWrapper {
+      flex: 1; display: flex; justify-content: center; align-items: center;
+      padding: max(24px, env(safe-area-inset-top)) max(30px, env(safe-area-inset-right)) 24px max(30px, env(safe-area-inset-left));
+      position: relative; z-index: 5; pointer-events: none;
     }
-    #shutterFrame:active { background-image: linear-gradient(135deg, var(--primary-dark), #9F1239); }
+    #cameraStage {
+      /* アスペクト比はJSで動的設定 */
+      max-width: 100%; max-height: 100%; background: #000;
+      border-radius: 12px; overflow: hidden; position: relative;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6); pointer-events: auto; cursor: crosshair;
+    }
+    #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
     
-    /* ★日本語テキストの配置 (左右は自然な縦書きに) */
-    .frame-text { position: absolute; color: rgba(255,255,255,0.85); font-weight: 800; font-size: 0.95rem; letter-spacing: 0.15em; pointer-events: none; }
-    .text-top { top: 12px; left: 50%; transform: translateX(-50%); }
-    .text-bottom { bottom: calc(12px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); }
+    /* 🔤 長辺のみ表示するテキスト */
+    .shutter-text { position: absolute; color: rgba(255,255,255,0.85); font-weight: 800; font-size: 0.95rem; letter-spacing: 0.15em; pointer-events: none; white-space: nowrap; }
+    .text-top { top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: none; }
+    .text-bottom { bottom: 12px; left: 50%; transform: translateX(-50%); display: none; }
     .text-left { left: max(10px, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; }
     .text-right { right: max(10px, env(safe-area-inset-right)); top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; }
 
-    /* ファインダー (containでクロップなし) */
-    #cameraStage { flex: 1; background: #000; border-radius: var(--radius-md); overflow: hidden; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); pointer-events: auto; }
-    #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-    #editorImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: none; background: #000; }
+    /* 🎛 フォーカス＆スライダーUI */
+    #focusUI { position: absolute; display: none; transform: translate(-50%, -50%); z-index: 20; }
+    .focus-ring { width: 70px; height: 70px; border: 1.5px solid #FFD60A; box-shadow: 0 0 4px rgba(0,0,0,0.5); position: relative; animation: focusAnim 0.3s ease-out forwards; }
+    @keyframes focusAnim { 0% { transform: scale(1.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     
-    /* 編集モード時のフレーム変化 */
-    #mainContent.edit-mode { background: var(--bg-light); }
-    #mainContent.edit-mode #shutterFrame { background: transparent; padding: 12px; cursor: default; }
-    #mainContent.edit-mode .frame-text { display: none; }
-    #mainContent.edit-mode #cameraStage { box-shadow: var(--shadow-md); border: 1px solid var(--border); }
+    /* スライダー共通 */
+    input[type=range] { -webkit-appearance: none; background: transparent; position: absolute; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: #FFD60A; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.4); cursor: pointer; }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255,255,255,0.5); border-radius: 2px; }
+    /* 縦 (明るさ・フラッシュ) */
+    #sliderBright { width: 120px; right: -75px; top: 25px; transform: rotate(-90deg); transform-origin: left center; }
+    /* 横 (ピント/ズーム) */
+    #sliderFocus { width: 120px; left: -25px; bottom: -30px; }
 
-    /* オーバーレイ UI */
+    /* 🎨 オーバーレイ（スタンプ等） */
     .overlay-ui { position: absolute; z-index: 10; pointer-events: none; }
-    #stampPreview { display: none; padding: 8px 16px; border-radius: 8px; background: rgba(0,0,0,0.85); border: 2px solid #fff; color: #fff; font-weight: 800; font-size: 1.2rem; letter-spacing: 0.05em; }
-    #gpsPreview { bottom: 12px; left: 12px; padding: 6px 12px; border-radius: 20px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); color: #fff; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 4px; }
-    #shapePreview { position: absolute; z-index: 11; display: none; transform-origin: center center; pointer-events: none; }
+    #stampPreview { display: none; padding: 8px 16px; border-radius: 8px; background: rgba(0,0,0,0.85); border: 2px solid #fff; color: #fff; font-weight: 800; font-size: 1.2rem; }
+    #shapePreview { display: none; transform-origin: center center; position: absolute; z-index: 11; }
 
-    /* =====================================
-       ✏️ 編集時用パネル
-       ===================================== */
-    #editPanel { display: none; background: var(--surface); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); flex-direction: column; gap: 12px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
-    #mainContent.edit-mode #editPanel { display: flex; }
-    
+    /* 🧰 下部コントロールパネル（縦画面時は下、横画面時は右） */
+    #toolsPanel { background: var(--surface); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; cursor: default; }
     .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .tool-btn { height: 48px; background: var(--bg-light); border: 1.5px solid var(--border); border-radius: 12px; color: var(--text-sub); font-weight: 800; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s ease; }
+    .tool-btn { height: 46px; background: var(--bg-light); border: 1.5px solid var(--border); border-radius: 12px; color: var(--text-main); font-weight: 800; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
     .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .btn-save-edit { height: 56px; background: var(--text-main); color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 6px 16px rgba(15,23,42,0.2); }
-    .btn-save-edit:active { transform: scale(0.97); }
+    
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .btn-gallery { height: 36px; padding: 0 16px; background: var(--text-main); color: #fff; border-radius: 8px; font-weight: bold; border: none; }
 
-    /* =====================================
-       📱 横画面への完全対応
-       ===================================== */
+    /* 📱 画面の向きに応じたレイアウト切り替え */
     @media (orientation: landscape) {
-      .header { height: calc(46px + env(safe-area-inset-top)); }
-      #shutterFrame { padding: 30px max(50px, env(safe-area-inset-right)) 30px max(50px, env(safe-area-inset-left)); } 
-      
-      #mainContent.edit-mode { flex-direction: row; }
-      #mainContent.edit-mode #shutterFrame { padding: 16px; }
-      #mainContent.edit-mode #editPanel { width: 320px; border-radius: 24px 0 0 24px; border-left: 1px solid var(--border); box-shadow: -4px 0 20px rgba(0,0,0,0.05); justify-content: center; }
+      #app { flex-direction: row; }
+      .text-left, .text-right { display: none; }
+      .text-top, .text-bottom { display: block; }
+      #toolsPanel { width: 300px; padding: 16px max(16px, env(safe-area-inset-right)) 16px 16px; border-left: 2px solid var(--border); justify-content: center; }
       .tools-grid { grid-template-columns: repeat(2, 1fr); }
     }
 
-    /* =====================================
-       モーダル群 (一覧・送信設定) ★セーフエリア対応
-       ===================================== */
-    .modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; flex-direction: column; padding: 0; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-    .modal.show { opacity: 1; pointer-events: auto; }
-    .m-card { flex: 1; margin: env(safe-area-inset-top) 0 0 0; background: var(--bg-light); color: var(--text-main); border-radius: var(--radius-lg) var(--radius-lg) 0 0; display: flex; flex-direction: column; overflow: hidden; transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .modal.show .m-card { transform: translateY(0); }
-    
-    .m-header { height: 56px; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1.1rem; flex-shrink:0; }
-    .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-light); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); }
-    
-    .m-body { flex: 1; overflow-y: auto; padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left)); }
-    .m-bottom { padding: 16px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; flex-shrink:0; }
-    
-    .g-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface); border-radius: var(--radius-md); margin-bottom: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
-    .g-thumb { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; cursor: pointer; border: 1px solid var(--border); }
-    .g-info { flex: 1; cursor: pointer; }
-    
-    .input-box { width: 100%; height: 50px; border: 2px solid var(--border); border-radius: 12px; padding: 0 16px; font-size: 1.05rem; font-weight: 700; outline: none; background: var(--surface); color: var(--text-main); }
-    .input-box:focus { border-color: var(--primary); }
-    
     #flashEffect { position: fixed; inset: 0; background: #fff; z-index: 9000; opacity: 0; pointer-events: none; transition: opacity 0.1s; }
-    #toast { position: fixed; top: calc(70px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(255,255,255,0.95); color: var(--text-main); padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; white-space: nowrap; box-shadow: var(--shadow-md); text-align: center; }
+    #toast { position: fixed; top: calc(20px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(255,255,255,0.95); color: #000; padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; }
   </style>
 </head>
 <body>
@@ -147,449 +98,169 @@
 <div id="toast"></div>
 
 <div id="app">
-  <!-- 🪟 ヘッダー -->
-  <header class="header" id="mainHeader">
-    <div class="header-logo"><div class="red-mark"></div><span id="headerTitle">Field Camera</span></div>
+  <!-- 🔴 メイン撮影領域 -->
+  <div id="captureArea" onclick="capturePhoto()">
     
-    <!-- 撮影時のアクション -->
-    <div class="header-actions" id="captureActions">
-      <!-- ⛶ フルスクリーン説明ボタン -->
-      <button class="header-btn" onclick="showFullScreenHelp()" title="全画面表示について">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-      </button>
-      
-      <label class="header-btn" style="padding:0 12px;">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
-      </label>
-      
-      <button class="header-btn primary" id="btnGallery">
-        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-        一覧(<span id="gCount">0</span>)
-      </button>
-    </div>
+    <!-- 長辺テキスト -->
+    <div class="shutter-text text-top">赤いところはぜんぶシャッター</div>
+    <div class="shutter-text text-bottom">赤いところはぜんぶシャッター</div>
+    <div class="shutter-text text-left">赤いところはぜんぶシャッター</div>
+    <div class="shutter-text text-right">赤いところはぜんぶシャッター</div>
 
-    <!-- 編集時のアクション -->
-    <div class="header-actions" id="editActions" style="display:none;">
-      <button class="header-btn" id="btnEditorClose" style="background:rgba(0,0,0,0.5); color:#fff;">
-        <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> キャンセル
-      </button>
-    </div>
-  </header>
-
-  <!-- 📷 メインコンテンツ領域 -->
-  <div id="mainContent">
-    
-    <!-- 🔴 外周シャッターフレーム (枠のどこを押しても撮れる・極太) -->
-    <div id="shutterFrame" onclick="if(!editMode) capturePhoto()">
-      <!-- 日本語テキストに切り替え -->
-      <div class="frame-text text-top">赤いところはぜんぶシャッター</div>
-      <div class="frame-text text-bottom">赤いところはぜんぶシャッター</div>
-      <div class="frame-text text-left">赤いところはぜんぶシャッター</div>
-      <div class="frame-text text-right">赤いところはぜんぶシャッター</div>
-
-      <!-- ファインダー (伝播ストップでここを触っても撮れない。全範囲表示) -->
-      <main id="cameraStage" onclick="event.stopPropagation()">
+    <div id="cameraWrapper">
+      <!-- 📸 ファインダー (クリック伝播ストップでシャッター回避) -->
+      <div id="cameraStage" onclick="handleFocus(event)">
         <video id="video" autoplay playsinline muted></video>
-        <img id="editorImg" src="">
         
         <div id="stampPreview" class="overlay-ui"></div>
-        <div id="gpsPreview" class="overlay-ui"><span id="gpsText">GPS待機中...</span></div>
-        
-        <!-- 図形プレビュー -->
         <div id="shapePreview">
-          <svg id="svgArrow" width="100" height="100" viewBox="-50 -50 100 100" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
+          <svg id="svgArrow" width="100" height="100" viewBox="-50 -50 100 100" style="display:none; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
             <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#fff" stroke-width="6" stroke-linejoin="round" />
             <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#E11D48" stroke-width="3" stroke-linejoin="round" />
           </svg>
-          <svg id="svgCircle" width="120" height="120" viewBox="-60 -60 120 120" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
-            <circle cx="0" cy="0" r="45" fill="none" stroke="#fff" stroke-width="12" />
-            <circle cx="0" cy="0" r="45" fill="none" stroke="#E11D48" stroke-width="6" />
-          </svg>
         </div>
-      </main>
-    </div>
 
-    <!-- ✏️ 編集時用パネル -->
-    <section id="editPanel">
-      <div class="tools-grid">
-        <button class="tool-btn" data-stamp="作業前">作業前</button>
-        <button class="tool-btn" data-stamp="作業中">作業中</button>
-        <button class="tool-btn" data-stamp="作業後">作業後</button>
-        <button class="tool-btn" id="btnCustomStamp">その他</button>
+        <!-- 🎛 タップフォーカスUI -->
+        <div id="focusUI" onclick="event.stopPropagation()">
+          <div class="focus-ring"></div>
+          <input type="range" id="sliderBright" min="0.5" max="2.0" step="0.1" value="1.0">
+          <input type="range" id="sliderFocus" min="1" max="3" step="0.1" value="1.0">
+        </div>
       </div>
-      <div class="tools-grid">
-        <button class="tool-btn" data-shape="arrow">➜ 矢印</button>
-        <button class="tool-btn" data-shape="circle">〇 円</button>
-        <button class="tool-btn" data-pos="top-left">↖ 左上</button>
-        <button class="tool-btn" data-pos="bottom-right">↘ 右下</button>
-      </div>
-      <button class="btn-save-edit" onclick="saveEdit()">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-        編集内容を上書き保存
-      </button>
-    </section>
+    </div>
   </div>
+
+  <!-- 🧰 下部（右部）ツールパネル -->
+  <section id="toolsPanel" onclick="event.stopPropagation()">
+    <div class="panel-header">
+      <div style="color:var(--text-main); font-weight:800;">ツール・スタンプ</div>
+      <button class="btn-gallery" onclick="alert('※このモックでは一覧は省略されています')">一覧(<span id="gCount">0</span>)</button>
+    </div>
+    <div class="tools-grid">
+      <button class="tool-btn" data-stamp="作業前">作業前</button>
+      <button class="tool-btn" data-stamp="作業中">作業中</button>
+      <button class="tool-btn" data-stamp="作業後">作業後</button>
+      <button class="tool-btn" data-stamp="その他">その他</button>
+    </div>
+    <div class="tools-grid">
+      <button class="tool-btn" data-shape="arrow">➜ 矢印</button>
+      <button class="tool-btn" data-shape="circle">〇 円</button>
+      <button class="tool-btn" data-pos="top-left">↖ 左上</button>
+      <button class="tool-btn" data-pos="bottom-right">↘ 右下</button>
+    </div>
+  </section>
 </div>
 
-<!-- 📁 ギャラリー一覧 -->
-<section id="modalGallery" class="modal">
-  <div class="m-card">
-    <div class="m-header">
-      <div>写真一覧（タップして編集）</div>
-      <button class="icon-btn" id="closeGallery"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-    </div>
-    <div style="padding:10px 16px; background:var(--bg-light); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-      <div style="font-size:0.9rem; font-weight:800;">選択中: <span id="selCount" style="color:var(--primary);">0</span> 枚</div>
-      <button class="tool-btn" id="btnDelete" style="height:36px; padding:0 12px; color:var(--primary); border-color:var(--primary);">
-        <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> 削除
-      </button>
-    </div>
-    <div class="m-body" id="galleryList"></div>
-    <div class="m-bottom">
-      <div style="display:flex; gap:8px;">
-        <button class="tool-btn" id="btnSelectAll" style="flex:1; height:54px; font-size:1rem; font-weight:800;">全選択/解除</button>
-        <button class="btn-save-edit" id="btnOpenSend" style="flex:2; height:54px; background:var(--primary);">
-          <svg class="icon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> 送信・共有
-        </button>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ✉ 送信・メール設定 -->
-<section id="modalSend" class="modal">
-  <div class="m-card">
-    <div class="m-header">
-      <div>共有・送信</div>
-      <button class="icon-btn" id="closeSend"><svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
-    </div>
-    <div class="m-body" style="display:flex; flex-direction:column; gap:16px;">
-      <div>
-        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">受付番号・件名</label>
-        <input id="sendJobNum" class="input-box" type="text" placeholder="例: 現場名など">
-      </div>
-      <div>
-        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">デフォルト宛先(To) ※自動コピー用</label>
-        <input id="sendEmail" class="input-box" type="email" placeholder="example@mail.com">
-      </div>
-      <div style="font-size:0.8rem; color:var(--text-sub); line-height:1.5; background:var(--surface); padding:12px; border-radius:var(--radius-md); border:1px solid var(--border);">
-        💡 送信ボタンを押すと、宛先アドレスがコピーされ、位置情報のMapリンクが本文に挿入されます。メーラーが起動したら宛先欄に「ペースト」してください。
-      </div>
-    </div>
-    <div class="m-bottom">
-      <button class="btn-save-edit" id="btnExecSend" style="background:var(--primary);">🚀 共有メニューを開く</button>
-    </div>
-  </div>
-</section>
-
-<!-- ✏️ カスタムスタンプ -->
-<section id="modalStamp" class="modal">
-  <div class="m-card">
-    <div class="m-header">
-      <div>スタンプ作成</div>
-      <button class="icon-btn" id="closeStamp"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
-    </div>
-    <div class="m-body">
-      <div style="display:flex; gap:8px; margin-bottom:20px;">
-        <input id="newStampText" class="input-box" type="text" placeholder="新しいテキスト">
-        <button class="btn-save-edit" id="btnAddStamp" style="width:80px; height:50px; background:var(--primary); font-size:1rem;">追加</button>
-      </div>
-      <div id="customStampList" style="display:flex; flex-direction:column; gap:8px;"></div>
-    </div>
-  </div>
-</section>
-
 <script>
-/* =======================================
-   1. グローバル状態 & DB & 初期化
-======================================= */
-let db, photos = [];
-let stream, cameraStarted = false;
-let editMode = false, editTargetId = null;
-
-let currentStamp = null;
-let stampPos = "top-left";
-let activeShape = null; 
-let shapePos = null;
-let shapeScale = 1.0;
-let shapeAngle = 0; 
-
-let deviceCoords = null, currentCoords = null;
-
-const cvs = document.createElement("canvas");
-const ctx = cvs.getContext("2d");
+let stream, currentStamp = null, stampPos = "top-left", activeShape = null;
+let currentBrightness = 1.0, currentZoom = 1.0;
 const video = document.getElementById("video");
-const editorImg = document.getElementById("editorImg");
-const stage = document.getElementById("cameraStage");
-const shapePreview = document.getElementById("shapePreview");
+const cameraStage = document.getElementById("cameraStage");
+const focusUI = document.getElementById("focusUI");
+let photosCount = 0;
 
-window.onload = async () => {
-  await initDB();
-  startGps();
-  startCamera();
-  loadSettings();
-  setupEvents();
-  updateUI();
-};
-
-function initDB() {
-  return new Promise(res => {
-    const req = indexedDB.open("FieldCamProDB", 1);
-    req.onupgradeneeded = e => { if(!e.target.result.objectStoreNames.contains("photos")) e.target.result.createObjectStore("photos", {keyPath:"id"}); };
-    req.onsuccess = e => {
-      db = e.target.result;
-      db.transaction("photos").objectStore("photos").getAll().onsuccess = ev => {
-        photos = ev.target.result.sort((a,b)=>b.id-a.id);
-        document.getElementById("gCount").textContent = photos.length;
-        res();
-      };
-    };
-  });
-}
-
-function startGps() {
-  if(navigator.geolocation) {
-    navigator.geolocation.watchPosition(pos => {
-      deviceCoords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
-      if(!editMode) document.getElementById("gpsText").textContent = "GPS取得済";
-    }, () => {}, {enableHighAccuracy: true});
-  }
-}
-
+// カメラ起動
 async function startCamera() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
     video.srcObject = stream;
-    cameraStarted = true;
-  } catch(e) { toast("カメラが許可されていません"); }
+  } catch(e) { toast("カメラを許可してください"); }
 }
+startCamera();
 
-/* =======================================
-   2. UI イベント設定
-======================================= */
-function setupEvents() {
-  document.querySelectorAll("[data-stamp]").forEach(b => b.onclick = () => {
-    currentStamp = currentStamp === b.dataset.stamp ? null : b.dataset.stamp; updateUI();
-  });
-  
-  document.querySelectorAll("[data-shape]").forEach(b => b.onclick = () => {
-    activeShape = activeShape === b.dataset.shape ? null : b.dataset.shape;
-    if(activeShape && !shapePos) toast("画面をタップして配置");
-    if(!activeShape) shapePos = null;
-    updateUI();
-  });
+// アスペクト比を動画ソースに合わせる（黒帯排除）
+video.addEventListener('loadedmetadata', () => {
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  cameraStage.style.aspectRatio = `${w} / ${h}`;
+});
 
-  document.querySelectorAll("[data-pos]").forEach(b => b.onclick = () => {
-    stampPos = b.dataset.pos; updateUI();
-  });
-
-  setupGestures();
-
-  document.getElementById("fileInput").onchange = handleImport;
-  document.getElementById("btnGallery").onclick = () => { renderGallery(); openM('modalGallery'); };
-  document.getElementById("closeGallery").onclick = () => closeM('modalGallery');
-  document.getElementById("btnEditorClose").onclick = closeEditor;
-
-  document.getElementById("btnSelectAll").onclick = () => {
-    const chk = photos.some(p => !p.selected);
-    photos.forEach(p => p.selected = chk); renderGallery();
-  };
-  document.getElementById("btnDelete").onclick = () => {
-    const sel = photos.filter(p => p.selected);
-    if(sel.length && confirm(`${sel.length}枚削除しますか？`)) {
-      sel.forEach(p => db.transaction("photos","readwrite").objectStore("photos").delete(p.id));
-      photos = photos.filter(p => !p.selected); renderGallery();
-    }
-  };
-  
-  document.getElementById("btnOpenSend").onclick = () => {
-    if(!photos.some(p => p.selected)) return toast("写真を選択してください");
-    openM('modalSend');
-  };
-  document.getElementById("closeSend").onclick = () => closeM('modalSend');
-  document.getElementById("btnExecSend").onclick = executeShare;
-
-  document.getElementById("btnCustomStamp").onclick = () => { renderCustomStamps(); openM('modalStamp'); };
-  document.getElementById("closeStamp").onclick = () => closeM('modalStamp');
-  document.getElementById("btnAddStamp").onclick = addCustomStamp;
-}
+// ツールイベント
+document.querySelectorAll("[data-stamp]").forEach(b => b.onclick = () => {
+  currentStamp = currentStamp === b.dataset.stamp ? null : b.dataset.stamp; updateUI();
+});
+document.querySelectorAll("[data-shape]").forEach(b => b.onclick = () => {
+  activeShape = activeShape === b.dataset.shape ? null : b.dataset.shape; updateUI();
+});
+document.querySelectorAll("[data-pos]").forEach(b => b.onclick = () => {
+  stampPos = b.dataset.pos; updateUI();
+});
 
 function updateUI() {
   document.querySelectorAll("[data-stamp]").forEach(b => b.classList.toggle("active", b.dataset.stamp === currentStamp));
-  document.querySelectorAll("[data-shape]").forEach(b => b.classList.toggle("active", b.dataset.shape === activeShape));
   document.querySelectorAll("[data-pos]").forEach(b => b.classList.toggle("active", b.dataset.pos === stampPos));
+  document.querySelectorAll("[data-shape]").forEach(b => b.classList.toggle("active", b.dataset.shape === activeShape));
   
   const sp = document.getElementById("stampPreview");
   if(currentStamp) {
     sp.style.display = "block"; sp.textContent = currentStamp;
     sp.style.left = "auto"; sp.style.right = "auto"; sp.style.top = "auto"; sp.style.bottom = "auto";
-    if(stampPos === "top-left") { sp.style.top="20px"; sp.style.left="20px"; }
-    else { sp.style.bottom="20px"; sp.style.right="20px"; }
+    if(stampPos === "top-left") { sp.style.top="12px"; sp.style.left="12px"; }
+    else { sp.style.bottom="12px"; sp.style.right="12px"; }
   } else sp.style.display = "none";
+}
 
-  if(activeShape && shapePos) {
-    shapePreview.style.display = "block";
-    shapePreview.style.left = shapePos.x + "px"; shapePreview.style.top = shapePos.y + "px";
-    shapePreview.style.transform = `translate(-50%, -50%) rotate(${shapeAngle}rad) scale(${shapeScale})`;
-    document.getElementById("svgArrow").style.display = activeShape === 'arrow' ? "block" : "none";
-    document.getElementById("svgCircle").style.display = activeShape === 'circle' ? "block" : "none";
-  } else {
-    shapePreview.style.display = "none";
+// 🎛 タップフォーカス機能
+let focusTimer;
+function handleFocus(e) {
+  e.stopPropagation(); // シャッター起動をブロック
+  const r = cameraStage.getBoundingClientRect();
+  const x = e.clientX - r.left;
+  const y = e.clientY - r.top;
+  
+  focusUI.style.display = "block";
+  focusUI.style.left = `${x}px`;
+  focusUI.style.top = `${y}px`;
+  
+  // 5秒操作がなければ枠を消す
+  clearTimeout(focusTimer);
+  focusTimer = setTimeout(() => { focusUI.style.display = "none"; }, 5000);
+}
+
+// 縦スライダー：明るさ補正 & フラッシュ(Torch)
+document.getElementById("sliderBright").addEventListener('input', async (e) => {
+  clearTimeout(focusTimer); focusTimer = setTimeout(() => { focusUI.style.display = "none"; }, 5000);
+  currentBrightness = parseFloat(e.target.value);
+  video.style.filter = `brightness(${currentBrightness})`;
+  
+  // フラッシュ制御 (明るさ1.8以上でON)
+  const track = stream?.getVideoTracks()[0];
+  if(track && track.getCapabilities().torch !== undefined) {
+    try { await track.applyConstraints({ advanced: [{ torch: currentBrightness >= 1.8 }] }); } catch(err){}
   }
-  document.getElementById("gCount").textContent = photos.length;
-}
+});
 
-/* =======================================
-   3. フルスクリーン & ジェスチャー
-======================================= */
-function showFullScreenHelp() {
-  toast("Safari下部の [共有ボタン] から<br>『ホーム画面に追加』を押すと<br>URLバーが消えて全画面アプリになります");
-}
-
-function setupGestures() {
-  let ptrs = []; let initP = null;
-  stage.addEventListener('pointerdown', e => {
-    if(!editMode || !activeShape) return;
-    e.preventDefault(); ptrs.push(e);
-    if(ptrs.length === 1) {
-      if(!shapePos || Math.hypot(e.clientX - stage.getBoundingClientRect().left - shapePos.x, e.clientY - stage.getBoundingClientRect().top - shapePos.y) > 80) {
-        shapePos = getPt(e);
-      }
-    } else if (ptrs.length === 2) {
-      initP = {
-        d: Math.hypot(ptrs[0].clientX - ptrs[1].clientX, ptrs[0].clientY - ptrs[1].clientY),
-        a: Math.atan2(ptrs[1].clientY - ptrs[0].clientY, ptrs[1].clientX - ptrs[0].clientX),
-        s: shapeScale, ang: shapeAngle
-      };
-    }
-    updateUI();
-  });
-  stage.addEventListener('pointermove', e => {
-    if(!editMode || !activeShape || ptrs.length === 0) return;
-    e.preventDefault();
-    const idx = ptrs.findIndex(p => p.pointerId === e.pointerId); if(idx >= 0) ptrs[idx] = e;
-    
-    if(ptrs.length === 1) { shapePos = getPt(ptrs[0]); }
-    else if(ptrs.length === 2 && initP) {
-      const d = Math.hypot(ptrs[0].clientX - ptrs[1].clientX, ptrs[0].clientY - ptrs[1].clientY);
-      const a = Math.atan2(ptrs[1].clientY - ptrs[0].clientY, ptrs[1].clientX - ptrs[0].clientX);
-      shapeScale = Math.max(0.3, Math.min(initP.s * (d / initP.d), 5.0));
-      shapeAngle = initP.ang + (a - initP.a);
-    }
-    updateUI();
-  });
-  const up = e => { ptrs = ptrs.filter(p => p.pointerId !== e.pointerId); if(ptrs.length<2) initP = null; };
-  stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
-}
-function getPt(e) {
-  const r = stage.getBoundingClientRect();
-  return { x: Math.max(0, Math.min(r.width, e.clientX - r.left)), y: Math.max(0, Math.min(r.height, e.clientY - r.top)) };
-}
-
-/* =======================================
-   4. インポート処理
-======================================= */
-async function handleImport(e) {
-  const files = Array.from(e.target.files); if(!files.length) return;
-  toast(`読込中...`);
+// 横スライダー：ピント(Zoom API)
+document.getElementById("sliderFocus").addEventListener('input', async (e) => {
+  clearTimeout(focusTimer); focusTimer = setTimeout(() => { focusUI.style.display = "none"; }, 5000);
+  currentZoom = parseFloat(e.target.value);
   
-  for(let i=0; i<files.length; i++) {
-    const file = files[i];
-    const bmp = await createImageBitmap(file);
-    let w = bmp.width, h = bmp.height, max = 1280;
-    if(w>h && w>max){ h=Math.round(h*max/w); w=max; } else if(h>max){ w=Math.round(w*max/h); h=max; }
-    cvs.width = w; cvs.height = h; ctx.drawImage(bmp, 0, 0, w, h);
-    const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.85));
-    const item = { id: Date.now()+i, blob, stamp: "未編集", created: new Date().toISOString(), selected: false, coords: deviceCoords };
-    photos.unshift(item); await db.transaction("photos","readwrite").objectStore("photos").put(item);
+  const track = stream?.getVideoTracks()[0];
+  if(track && track.getCapabilities().zoom !== undefined) {
+    try { await track.applyConstraints({ advanced: [{ zoom: currentZoom }] }); } catch(err){}
   }
-  e.target.value = ""; updateUI();
-  renderGallery(); openM('modalGallery');
-}
+});
 
-/* =======================================
-   5. エディタモード切替
-======================================= */
-function openEditor(id) {
-  const p = photos.find(x => x.id === id); if(!p) return;
-  editMode = true; editTargetId = id; currentCoords = p.coords;
-  editorImg.src = URL.createObjectURL(p.blob);
-  
-  video.style.display = "none"; editorImg.style.display = "block";
-  document.getElementById("mainContent").classList.add("edit-mode");
-  document.getElementById("mainHeader").classList.add("edit-mode");
-  document.getElementById("captureActions").style.display = "none";
-  document.getElementById("editActions").style.display = "flex";
-  
-  closeM('modalGallery');
-  currentStamp = null; activeShape = null; shapePos = null; updateUI();
-}
-
-function closeEditor() {
-  editMode = false; editTargetId = null;
-  video.style.display = "block"; editorImg.style.display = "none";
-  
-  document.getElementById("mainContent").classList.remove("edit-mode");
-  document.getElementById("mainHeader").classList.remove("edit-mode");
-  document.getElementById("captureActions").style.display = "flex";
-  document.getElementById("editActions").style.display = "none";
-  
-  currentStamp = null; activeShape = null; shapePos = null; updateUI();
-}
-
-/* =======================================
-   6. 撮影 (フラッシュ付き) & 編集保存
-======================================= */
-async function capturePhoto() {
+// 📸 撮影処理 (フィルタをCanvasに焼き込む)
+function capturePhoto() {
   if(!video.videoWidth) return;
-  
   const flash = document.getElementById("flashEffect");
-  flash.style.opacity = "1";
-  setTimeout(() => flash.style.opacity = "0", 100);
+  flash.style.opacity = "1"; setTimeout(() => flash.style.opacity = "0", 100);
 
-  let w = video.videoWidth, h = video.videoHeight, max = 1280;
-  if(w>h && w>max){ h=Math.round(h*max/w); w=max; } else if(h>max){ w=Math.round(w*max/h); h=max; }
+  const cvs = document.createElement("canvas");
+  const ctx = cvs.getContext("2d");
+  cvs.width = video.videoWidth; cvs.height = video.videoHeight;
   
-  cvs.width = w; cvs.height = h;
-  ctx.drawImage(video, 0, 0, w, h);
-  
-  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.85));
-  const item = { id: Date.now(), blob, stamp: "未編集", created: new Date().toISOString(), selected: true, coords: deviceCoords };
-  photos.unshift(item); await db.transaction("photos","readwrite").objectStore("photos").put(item);
-  
-  updateUI();
-  toast(`保存しました（計${photos.length}枚）`);
-}
+  // 明るさを適用して描画
+  ctx.filter = `brightness(${currentBrightness})`;
+  ctx.drawImage(video, 0, 0, cvs.width, cvs.height);
+  ctx.filter = "none";
 
-async function saveEdit() {
-  const srcW = editorImg.naturalWidth, srcH = editorImg.naturalHeight;
-  cvs.width = srcW; cvs.height = srcH; const sc = srcW / srcW;
-  ctx.drawImage(editorImg, 0, 0, srcW, srcH);
+  if(currentStamp) drawStamp(ctx, currentStamp, cvs.width, cvs.height);
 
-  if(currentStamp) drawStamp(ctx, currentStamp, srcW, srcH);
-  if(activeShape && shapePos) {
-    const pt = stageToSource(shapePos.x, shapePos.y, srcW, srcH);
-    drawShape(ctx, pt.x * sc, pt.y * sc, srcW, srcH);
-  }
-
-  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.9));
-  const stampName = currentStamp || (activeShape ? "図形追加" : "編集済");
-  
-  const item = photos.find(x => x.id === editTargetId);
-  item.blob = blob; item.stamp = stampName;
-  await db.transaction("photos","readwrite").objectStore("photos").put(item);
-  
-  toast("上書き保存しました"); closeEditor(); renderGallery(); openM('modalGallery');
-}
-
-// 常にcontain（最小倍率）で計算することでクロップ無し状態の座標に対応
-function stageToSource(sx, sy, srcW, srcH) {
-  const stW = stage.clientWidth, stH = stage.clientHeight;
-  const scale = Math.min(stW/srcW, stH/srcH);
-  const rW = srcW * scale, rH = srcH * scale;
-  const offX = (stW - rW)/2, offY = (stH - rH)/2;
-  return { x: Math.max(0, Math.min(srcW, (sx - offX) / scale)), y: Math.max(0, Math.min(srcH, (sy - offY) / scale)) };
+  photosCount++;
+  document.getElementById("gCount").textContent = photosCount;
+  toast("写真を保存しました");
 }
 
 function drawStamp(ctx, txt, w, h) {
@@ -598,107 +269,16 @@ function drawStamp(ctx, txt, w, h) {
   const boxW = ctx.measureText(txt).width + pad * 2, boxH = fz + pad * 2;
   let x = m, y = m;
   if(stampPos === "bottom-right") { x = w - boxW - m; y = h - boxH - m; }
-  
-  ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.lineJoin = "round"; ctx.lineWidth = 12; ctx.strokeStyle = "rgba(0,0,0,0.85)";
-  ctx.strokeRect(x+6, y+6, boxW-12, boxH-12); ctx.fillRect(x+6, y+6, boxW-12, boxH-12);
+  ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.fillRect(x, y, boxW, boxH);
   ctx.strokeStyle = "#fff"; ctx.lineWidth = Math.max(3, w * 0.003); ctx.strokeRect(x, y, boxW, boxH);
   ctx.fillStyle = "#fff"; ctx.textBaseline = "middle"; ctx.fillText(txt, x + pad, y + boxH / 2);
 }
 
-function drawShape(ctx, tx, ty, w, h) {
-  ctx.save(); ctx.translate(tx, ty); ctx.rotate(shapeAngle);
-  const baseScale = (Math.min(w, h) / 1000) * shapeScale;
-  ctx.scale(baseScale, baseScale); ctx.lineCap = "round"; ctx.lineJoin = "round";
-  
-  if(activeShape === 'arrow') {
-    ctx.strokeStyle="#fff"; ctx.lineWidth=24;
-    ctx.beginPath(); ctx.moveTo(-60,0); ctx.lineTo(30,0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(30,0); ctx.lineTo(0,-30); ctx.lineTo(0,30); ctx.closePath(); ctx.stroke();
-    ctx.strokeStyle="#E11D48"; ctx.fillStyle="#E11D48"; ctx.lineWidth=14;
-    ctx.beginPath(); ctx.moveTo(-60,0); ctx.lineTo(30,0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(30,0); ctx.lineTo(0,-30); ctx.lineTo(0,30); ctx.closePath(); ctx.fill();
-  } else {
-    ctx.strokeStyle="#fff"; ctx.lineWidth=24; ctx.beginPath(); ctx.arc(0,0,70,0,Math.PI*2); ctx.stroke();
-    ctx.strokeStyle="#E11D48"; ctx.lineWidth=14; ctx.beginPath(); ctx.arc(0,0,70,0,Math.PI*2); ctx.stroke();
-  }
-  ctx.restore();
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  setTimeout(()=>t.style.display="none", 2000);
 }
-
-/* =======================================
-   7. ギャラリー & メール送信連携
-======================================= */
-function renderGallery() {
-  const list = document.getElementById("galleryList"); list.innerHTML = "";
-  document.getElementById("selCount").textContent = photos.filter(p => p.selected).length;
-  if(!photos.length) { list.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text-sub); font-weight:700;">撮影された写真がありません</div>`; return; }
-  
-  photos.forEach(p => {
-    const row = document.createElement("div"); row.className = "g-row";
-    const chk = document.createElement("input"); chk.type = "checkbox"; chk.checked = p.selected; chk.style.width="24px"; chk.style.height="24px"; chk.style.accentColor="var(--primary)";
-    chk.onchange = () => { p.selected = chk.checked; document.getElementById("selCount").textContent = photos.filter(x=>x.selected).length; };
-    const img = document.createElement("img"); img.className = "g-thumb"; img.src = URL.createObjectURL(p.blob);
-    img.onclick = () => openEditor(p.id);
-    const info = document.createElement("div"); info.className = "g-info";
-    const d = new Date(p.created); info.innerHTML = `<strong style="font-size:1.1rem; color:var(--text-main);">${p.stamp}</strong><br><small style="color:var(--text-sub);">${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}</small>`;
-    info.onclick = () => openEditor(p.id);
-    row.append(chk, img, info); list.appendChild(row);
-  });
-}
-
-async function executeShare() {
-  const sel = photos.filter(p => p.selected); if(!sel.length) return toast("写真がありません");
-  const email = document.getElementById("sendEmail").value.trim();
-  const num = document.getElementById("sendJobNum").value.trim() || "現場報告";
-  localStorage.setItem("defEmail", email);
-  
-  if(email) {
-    try { await navigator.clipboard.writeText(email); toast("宛先をコピーしました！"); } catch(e) {}
-  }
-
-  const links = [...new Set(sel.filter(p => p.coords).map(p => `https://maps.google.com/?q=${p.coords.lat},${p.coords.lng}`))];
-  let text = `【案件名・受付番号】\n${num}\n\n`;
-  if(links.length) text += `【撮影位置(GPS)】\n${links.join("\n")}`;
-  
-  const files = await Promise.all(sel.map(async (p,i) => new File([await p.blob.arrayBuffer()], `写真_${i+1}.jpg`, {type:"image/jpeg"})));
-  if(navigator.canShare && navigator.canShare({files})) {
-    setTimeout(async () => {
-      try { await navigator.share({text, files}); } catch(e){}
-    }, email ? 1000 : 0);
-  } else toast("共有機能が非対応です");
-}
-
-/* =======================================
-   8. カスタムスタンプ
-======================================= */
-let customStamps = [];
-function loadSettings() {
-  customStamps = JSON.parse(localStorage.getItem("customStamps")) || [];
-  document.getElementById("sendEmail").value = localStorage.getItem("defEmail") || "";
-}
-function renderCustomStamps() {
-  const list = document.getElementById("customStampList"); list.innerHTML = "";
-  if(!customStamps.length) list.innerHTML = "<div style='color:var(--text-sub); font-size:0.9rem; font-weight:700;'>登録されていません</div>";
-  customStamps.forEach((t, i) => {
-    const row = document.createElement("div"); row.style.display="flex"; row.style.gap="8px";
-    const btn = document.createElement("button"); btn.className = "tool-btn"; btn.style.flex="1"; btn.textContent = t;
-    btn.onclick = () => { currentStamp = t; document.getElementById("btnCustomStamp").textContent = t; updateUI(); closeM('modalStamp'); };
-    const del = document.createElement("button"); del.className = "icon-btn"; del.innerHTML = `<svg class="icon" viewBox="0 0 24 24" style="color:var(--primary);"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
-    del.onclick = () => { customStamps.splice(i, 1); localStorage.setItem("customStamps", JSON.stringify(customStamps)); renderCustomStamps(); };
-    row.append(btn, del); list.appendChild(row);
-  });
-}
-function addCustomStamp() {
-  const v = document.getElementById("newStampText").value.trim(); if(!v) return;
-  customStamps.push(v); localStorage.setItem("customStamps", JSON.stringify(customStamps));
-  document.getElementById("newStampText").value = ""; renderCustomStamps();
-}
-
-/* =======================================
-   9. ユーティリティ
-======================================= */
-function openM(id) { document.getElementById(id).classList.add("show"); }
-function closeM(id) { document.getElementById(id).classList.remove("show"); }
-let tTmr; function toast(msg) { const t=document.getElementById("toast"); t.innerHTML=msg; t.style.display="block"; clearTimeout(tTmr); tTmr=setTimeout(()=>t.style.display="none",3500); }
 </script>
 </body>
 </html>
