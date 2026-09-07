@@ -10,8 +10,9 @@
   <style>
     :root {
       --primary: #E11D48;
+      --primary-dark: #BE123C;
       --bg-dark: #000000;
-      --bg-light: #F8FAFC;
+      --bg-light: #F1F5F9;
       --surface: #FFFFFF;
       --text-main: #0F172A;
       --text-sub: #64748B;
@@ -24,66 +25,84 @@
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; user-select: none; }
     html, body { width: 100%; height: 100%; background: var(--bg-dark); color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
     
-    .icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
     
     #app { width: 100%; height: 100dvh; display: flex; flex-direction: column; }
     
-    /* 💎 ヘッダー (撮影時はダーク、編集時はライトに切り替え) */
-    .header { height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; z-index: 10; flex-shrink: 0; transition: background 0.3s; }
+    /* 🪟 ヘッダー (撮影時はダーク、編集時はライト) */
+    .header { height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; z-index: 10; flex-shrink: 0; background: var(--bg-dark); transition: all 0.3s; }
+    .header.edit-mode { background: var(--surface); color: var(--text-main); border-bottom: 1px solid var(--border); }
+    
     .header-logo { font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; letter-spacing: 0.03em; }
     .red-mark { width: 6px; height: 18px; background: var(--primary); border-radius: 3px; }
-    .header-actions { display: flex; gap: 8px; }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
     
-    .header-btn { height: 38px; padding: 0 14px; border-radius: 12px; background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; cursor: pointer; color: #fff; transition: transform 0.15s; border: none; }
-    .header-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.25); }
+    .header-btn { height: 38px; padding: 0 16px; border-radius: 10px; background: rgba(255,255,255,0.15); font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; cursor: pointer; color: #fff; border: none; transition: transform 0.15s; }
+    .header-btn:active { transform: scale(0.95); }
+    .header-btn.primary { background: var(--primary); }
+    .header.edit-mode .header-btn { background: var(--bg-light); color: var(--text-main); border: 1px solid var(--border); }
     
     /* =====================================
-       📷 メインステージ (カメラ & プレビュー)
+       📷 メインコンテンツ領域
        ===================================== */
-    .main-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; position: relative; }
+    #mainContent { flex: 1; display: flex; flex-direction: column; min-height: 0; transition: all 0.3s; }
     
-    #cameraStage { position: relative; flex: 1; min-height: 0; margin: 0 8px 8px 8px; background: #111; border-radius: var(--radius-lg); overflow: hidden; touch-action: none; display: flex; justify-content: center; align-items: center; }
+    /* 🔴 外周シャッターフレーム (撮影時のみ) */
+    #shutterFrame { flex: 1; display: flex; flex-direction: column; background-image: linear-gradient(135deg, var(--primary), var(--primary-dark)); padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); position: relative; cursor: pointer; transition: all 0.3s ease; }
+    #shutterFrame:active { background-image: linear-gradient(135deg, var(--primary-dark), #9F1239); }
+    
+    /* シャッター枠を彩るテキスト */
+    .frame-text { position: absolute; color: rgba(255,255,255,0.6); font-weight: 800; font-size: 0.8rem; letter-spacing: 0.25em; pointer-events: none; }
+    .text-top { top: 8px; left: 50%; transform: translateX(-50%); }
+    .text-bottom { bottom: calc(8px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); }
+    .text-left { left: -75px; top: 50%; transform: translateY(-50%) rotate(-90deg); width: 200px; text-align: center; }
+    .text-right { right: -75px; top: 50%; transform: translateY(-50%) rotate(90deg); width: 200px; text-align: center; }
+
+    /* ファインダー内 (イベント伝播ストップでここを押しても撮れないようにする) */
+    #cameraStage { flex: 1; background: #000; border-radius: var(--radius-md); overflow: hidden; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); pointer-events: auto; }
     #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
     #editorImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: none; background: #000; }
     
-    /* 🔴 外周ぐるっとシャッター (バンパー) */
-    .bumper-shutter { position: absolute; z-index: 20; background: rgba(225, 29, 72, 0.0); transition: background 0.1s; cursor: pointer; }
-    .bumper-shutter:active { background: rgba(255, 255, 255, 0.3); }
-    .bs-top { top: 0; left: 0; right: 0; height: 48px; }
-    .bs-bottom { bottom: 0; left: 0; right: 0; height: 48px; }
-    .bs-left { top: 0; bottom: 0; left: 0; width: 48px; }
-    .bs-right { top: 0; bottom: 0; right: 0; width: 48px; }
-
-    /* カメラ枠の視覚的ガイド (四隅のカギ括弧) */
-    .camera-guide { position: absolute; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.4); z-index: 15; pointer-events: none; border-radius: 4px; }
-    .cg-tl { top: 20px; left: 20px; border-right: none; border-bottom: none; }
-    .cg-tr { top: 20px; right: 20px; border-left: none; border-bottom: none; }
-    .cg-bl { bottom: 20px; left: 20px; border-right: none; border-top: none; }
-    .cg-br { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+    /* 編集モード時のフレーム変化 */
+    #mainContent.edit-mode { background: var(--bg-light); }
+    #mainContent.edit-mode #shutterFrame { background: transparent; padding: 12px; cursor: default; }
+    #mainContent.edit-mode .frame-text { display: none; }
+    #mainContent.edit-mode #cameraStage { box-shadow: var(--shadow-md); border: 1px solid var(--border); }
 
     /* オーバーレイ UI */
     .overlay-ui { position: absolute; z-index: 10; pointer-events: none; }
     #stampPreview { display: none; padding: 8px 16px; border-radius: 8px; background: rgba(0,0,0,0.85); border: 2px solid #fff; color: #fff; font-weight: 800; font-size: 1.2rem; letter-spacing: 0.05em; }
     #gpsPreview { bottom: 12px; left: 12px; padding: 6px 12px; border-radius: 20px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); color: #fff; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 4px; }
     #shapePreview { position: absolute; z-index: 11; display: none; transform-origin: center center; pointer-events: none; }
-    
+
     /* =====================================
-       🎛 下部パネル (撮影モード vs 編集モード)
+       ✏️ 編集時用パネル (初期は非表示)
        ===================================== */
-    /* 撮影時専用の巨大シャッターエリア */
-    #capturePanel { padding: 0 16px 24px 16px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
-    .huge-shutter { width: 100%; height: 72px; background: var(--primary); color: #fff; border: none; border-radius: 20px; font-weight: 800; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 8px 24px rgba(225, 29, 72, 0.4); cursor: pointer; transition: transform 0.1s; }
-    .huge-shutter:active { transform: scale(0.96); background: #BE123C; }
-
-    /* 編集時専用のエディタパネル (通常時は非表示) */
-    #editPanel { display: none; background: var(--surface); color: var(--text-main); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); flex-direction: column; gap: 12px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+    #editPanel { display: none; background: var(--surface); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); flex-direction: column; gap: 12px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
+    #mainContent.edit-mode #editPanel { display: flex; }
+    
     .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .tool-btn { height: 48px; background: var(--bg-light); border: 1.5px solid var(--border); border-radius: 12px; color: var(--text-sub); font-weight: 700; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s ease; }
+    .tool-btn { height: 48px; background: var(--bg-light); border: 1.5px solid var(--border); border-radius: 12px; color: var(--text-sub); font-weight: 800; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s ease; }
     .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .btn-save-edit { height: 56px; background: var(--text-main); color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: var(--shadow-md); }
+    .btn-save-edit { height: 56px; background: var(--text-main); color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 6px 16px rgba(15,23,42,0.2); }
+    .btn-save-edit:active { transform: scale(0.97); }
 
     /* =====================================
-       📱 モーダル (ギャラリー・設定)
+       📱 横画面（ランドスケープ）への完全対応
+       ===================================== */
+    @media (orientation: landscape) {
+      .header { height: 46px; }
+      #shutterFrame { padding: 16px 40px; } /* 左右の枠を太くして押しやすく */
+      .text-left { left: -50px; } .text-right { right: -50px; }
+      
+      #mainContent.edit-mode { flex-direction: row; }
+      #mainContent.edit-mode #shutterFrame { padding: 16px; }
+      #mainContent.edit-mode #editPanel { width: 320px; border-radius: 24px 0 0 24px; border-left: 1px solid var(--border); box-shadow: -4px 0 20px rgba(0,0,0,0.05); justify-content: center; }
+      .tools-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* =====================================
+       モーダル群 (一覧・送信設定)
        ===================================== */
     .modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; flex-direction: column; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
     .modal.show { opacity: 1; pointer-events: auto; }
@@ -96,12 +115,10 @@
     .m-body { flex: 1; overflow-y: auto; padding: 16px; }
     .m-bottom { padding: 16px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; flex-shrink:0; }
     
-    /* ギャラリー項目 */
     .g-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface); border-radius: var(--radius-md); margin-bottom: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
     .g-thumb { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; cursor: pointer; border: 1px solid var(--border); }
     .g-info { flex: 1; cursor: pointer; }
     
-    /* 汎用 UI */
     .input-box { width: 100%; height: 50px; border: 2px solid var(--border); border-radius: 12px; padding: 0 16px; font-size: 1.05rem; font-weight: 700; outline: none; background: var(--surface); color: var(--text-main); }
     .input-box:focus { border-color: var(--primary); }
     
@@ -117,15 +134,15 @@
 <div id="app">
   <!-- 🪟 ヘッダー -->
   <header class="header" id="mainHeader">
-    <div class="header-logo" id="headerLogo"><div class="red-mark"></div><span id="headerTitle">Field Camera</span></div>
+    <div class="header-logo"><div class="red-mark"></div><span id="headerTitle">Field Camera</span></div>
     
     <!-- 撮影時のアクション -->
     <div class="header-actions" id="captureActions">
-      <label class="header-btn">
+      <label class="header-btn" style="padding:0 12px;">
         <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
         <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
       </label>
-      <button class="header-btn" id="btnGallery" style="background:var(--primary); color:#fff;">
+      <button class="header-btn primary" id="btnGallery">
         <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
         一覧(<span id="gCount">0</span>)
       </button>
@@ -133,55 +150,44 @@
 
     <!-- 編集時のアクション -->
     <div class="header-actions" id="editActions" style="display:none;">
-      <button class="header-btn" id="btnEditorClose" style="background:rgba(0,0,0,0.5); color:#fff;">
+      <button class="header-btn" id="btnEditorClose">
         <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> キャンセル
       </button>
     </div>
   </header>
 
-  <div class="main-wrap">
-    <!-- 📷 カメラステージ -->
-    <main id="cameraStage">
-      <video id="video" autoplay playsinline muted></video>
-      <img id="editorImg" src="">
-      
-      <!-- 四隅のカギ括弧 (デザイン用) -->
-      <div id="camGuides">
-        <div class="camera-guide cg-tl"></div><div class="camera-guide cg-tr"></div>
-        <div class="camera-guide cg-bl"></div><div class="camera-guide cg-br"></div>
-      </div>
+  <!-- 📷 メインコンテンツ領域 -->
+  <div id="mainContent">
+    
+    <!-- 🔴 外周シャッターフレーム (枠のどこを押しても撮れる) -->
+    <div id="shutterFrame" onclick="if(!editMode) capturePhoto()">
+      <!-- 枠の装飾テキスト -->
+      <div class="frame-text text-top">TAP ANYWHERE ON THE FRAME TO SHOOT</div>
+      <div class="frame-text text-bottom">TAP ANYWHERE ON THE FRAME TO SHOOT</div>
+      <div class="frame-text text-left">TAP FRAME TO SHOOT</div>
+      <div class="frame-text text-right">TAP FRAME TO SHOOT</div>
 
-      <!-- 🔴 外周ぐるっとシャッターバンパー (撮影時のみ有効) -->
-      <div id="shutterBumpers">
-        <div class="bumper-shutter bs-top" onclick="capturePhoto()"></div>
-        <div class="bumper-shutter bs-bottom" onclick="capturePhoto()"></div>
-        <div class="bumper-shutter bs-left" onclick="capturePhoto()"></div>
-        <div class="bumper-shutter bs-right" onclick="capturePhoto()"></div>
-      </div>
-      
-      <div id="stampPreview" class="overlay-ui"></div>
-      <div id="gpsPreview" class="overlay-ui"><span id="gpsText">GPS待機中...</span></div>
-      
-      <!-- 図形プレビュー -->
-      <div id="shapePreview">
-        <svg id="svgArrow" width="100" height="100" viewBox="-50 -50 100 100" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
-          <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#fff" stroke-width="6" stroke-linejoin="round" />
-          <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#E11D48" stroke-width="3" stroke-linejoin="round" />
-        </svg>
-        <svg id="svgCircle" width="120" height="120" viewBox="-60 -60 120 120" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
-          <circle cx="0" cy="0" r="45" fill="none" stroke="#fff" stroke-width="12" />
-          <circle cx="0" cy="0" r="45" fill="none" stroke="#E11D48" stroke-width="6" />
-        </svg>
-      </div>
-    </main>
-
-    <!-- 📸 撮影時用パネル -->
-    <section id="capturePanel">
-      <button class="huge-shutter" onclick="capturePhoto()">
-        <svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
-        どこでもタップで撮影
-      </button>
-    </section>
+      <!-- ファインダー (伝播ストップでここを触っても撮れない) -->
+      <main id="cameraStage" onclick="event.stopPropagation()">
+        <video id="video" autoplay playsinline muted></video>
+        <img id="editorImg" src="">
+        
+        <div id="stampPreview" class="overlay-ui"></div>
+        <div id="gpsPreview" class="overlay-ui"><span id="gpsText">GPS待機中...</span></div>
+        
+        <!-- 図形プレビュー -->
+        <div id="shapePreview">
+          <svg id="svgArrow" width="100" height="100" viewBox="-50 -50 100 100" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
+            <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#fff" stroke-width="6" stroke-linejoin="round" />
+            <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#E11D48" stroke-width="3" stroke-linejoin="round" />
+          </svg>
+          <svg id="svgCircle" width="120" height="120" viewBox="-60 -60 120 120" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
+            <circle cx="0" cy="0" r="45" fill="none" stroke="#fff" stroke-width="12" />
+            <circle cx="0" cy="0" r="45" fill="none" stroke="#E11D48" stroke-width="6" />
+          </svg>
+        </div>
+      </main>
+    </div>
 
     <!-- ✏️ 編集時用パネル -->
     <section id="editPanel">
@@ -487,15 +493,10 @@ function openEditor(id) {
   
   // UI切替
   video.style.display = "none"; editorImg.style.display = "block";
+  document.getElementById("mainContent").classList.add("edit-mode");
+  document.getElementById("mainHeader").classList.add("edit-mode");
   document.getElementById("captureActions").style.display = "none";
   document.getElementById("editActions").style.display = "flex";
-  document.getElementById("mainHeader").style.background = "var(--surface)";
-  document.getElementById("mainHeader").style.color = "var(--text-main)";
-  
-  document.getElementById("camGuides").style.display = "none";
-  document.getElementById("shutterBumpers").style.display = "none";
-  document.getElementById("capturePanel").style.display = "none";
-  document.getElementById("editPanel").style.display = "flex";
   
   closeM('modalGallery');
   currentStamp = null; activeShape = null; shapePos = null; updateUI();
@@ -506,15 +507,10 @@ function closeEditor() {
   video.style.display = "block"; editorImg.style.display = "none";
   
   // UI復元
+  document.getElementById("mainContent").classList.remove("edit-mode");
+  document.getElementById("mainHeader").classList.remove("edit-mode");
   document.getElementById("captureActions").style.display = "flex";
   document.getElementById("editActions").style.display = "none";
-  document.getElementById("mainHeader").style.background = "transparent";
-  document.getElementById("mainHeader").style.color = "#fff";
-  
-  document.getElementById("camGuides").style.display = "block";
-  document.getElementById("shutterBumpers").style.display = "block";
-  document.getElementById("capturePanel").style.display = "flex";
-  document.getElementById("editPanel").style.display = "none";
   
   currentStamp = null; activeShape = null; shapePos = null; updateUI();
 }
