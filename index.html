@@ -9,188 +9,197 @@
 
   <style>
     :root {
-      --primary: #E11D48; /* 洗練されたローズレッド */
-      --primary-light: #FFE4E6;
-      --bg-base: #F8FAFC;
+      --primary: #E11D48;
+      --bg-dark: #000000;
+      --bg-light: #F8FAFC;
       --surface: #FFFFFF;
       --text-main: #0F172A;
       --text-sub: #64748B;
       --border: #E2E8F0;
       --radius-lg: 24px;
       --radius-md: 14px;
-      --shadow-sm: 0 2px 8px rgba(15,23,42,0.04);
-      --shadow-md: 0 12px 32px rgba(15,23,42,0.08);
+      --shadow-md: 0 12px 32px rgba(0,0,0,0.15);
     }
     
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; user-select: none; }
-    html, body { width: 100%; height: 100%; background: var(--bg-base); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; -webkit-font-smoothing: antialiased; }
+    html, body { width: 100%; height: 100%; background: var(--bg-dark); color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
     
-    /* アイコン共通設定 */
-    .icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
     
     #app { width: 100%; height: 100dvh; display: flex; flex-direction: column; }
     
-    /* 💎 ガラス風ヘッダー */
-    .header { height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(226, 232, 240, 0.8); z-index: 10; flex-shrink: 0; }
-    .header-logo { font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; letter-spacing: 0.02em; }
+    /* 💎 ヘッダー (撮影時はダーク、編集時はライトに切り替え) */
+    .header { height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; z-index: 10; flex-shrink: 0; transition: background 0.3s; }
+    .header-logo { font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; letter-spacing: 0.03em; }
     .red-mark { width: 6px; height: 18px; background: var(--primary); border-radius: 3px; }
     .header-actions { display: flex; gap: 8px; }
-    .header-btn { height: 36px; padding: 0 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-main); box-shadow: var(--shadow-sm); transition: transform 0.15s; }
-    .header-btn:active { transform: scale(0.96); }
     
-    .main-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .header-btn { height: 38px; padding: 0 14px; border-radius: 12px; background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; cursor: pointer; color: #fff; transition: transform 0.15s; border: none; }
+    .header-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.25); }
     
-    /* 📷 カメラステージ */
-    #cameraStage { position: relative; flex: 1; min-height: 0; margin: 12px; background: #000; border-radius: var(--radius-lg); overflow: hidden; touch-action: none; box-shadow: var(--shadow-sm); }
+    /* =====================================
+       📷 メインステージ (カメラ & プレビュー)
+       ===================================== */
+    .main-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; position: relative; }
+    
+    #cameraStage { position: relative; flex: 1; min-height: 0; margin: 0 8px 8px 8px; background: #111; border-radius: var(--radius-lg); overflow: hidden; touch-action: none; display: flex; justify-content: center; align-items: center; }
     #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
     #editorImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: none; background: #000; }
     
-    /* 🔴 4辺のガラス風シャッターボタン */
-    .float-shutter { position: absolute; width: 56px; height: 56px; background: rgba(255,255,255,0.25); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); border-radius: 50%; z-index: 20; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,0.1); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-    .float-shutter::after { content: ''; width: 40px; height: 40px; background: var(--primary); border-radius: 50%; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-    .float-shutter:active { background: rgba(255,255,255,0.4); }
-    .float-shutter:active::after { transform: scale(0.85); }
-    
-    .fs-top { top: 16px; left: calc(50% - 28px); }
-    .fs-bottom { bottom: 16px; left: calc(50% - 28px); }
-    .fs-left { left: 16px; top: calc(50% - 28px); }
-    .fs-right { right: 16px; top: calc(50% - 28px); }
+    /* 🔴 外周ぐるっとシャッター (バンパー) */
+    .bumper-shutter { position: absolute; z-index: 20; background: rgba(225, 29, 72, 0.0); transition: background 0.1s; cursor: pointer; }
+    .bumper-shutter:active { background: rgba(255, 255, 255, 0.3); }
+    .bs-top { top: 0; left: 0; right: 0; height: 48px; }
+    .bs-bottom { bottom: 0; left: 0; right: 0; height: 48px; }
+    .bs-left { top: 0; bottom: 0; left: 0; width: 48px; }
+    .bs-right { top: 0; bottom: 0; right: 0; width: 48px; }
+
+    /* カメラ枠の視覚的ガイド (四隅のカギ括弧) */
+    .camera-guide { position: absolute; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.4); z-index: 15; pointer-events: none; border-radius: 4px; }
+    .cg-tl { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+    .cg-tr { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+    .cg-bl { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+    .cg-br { bottom: 20px; right: 20px; border-left: none; border-top: none; }
 
     /* オーバーレイ UI */
     .overlay-ui { position: absolute; z-index: 10; pointer-events: none; }
-    #stampPreview { display: none; padding: 8px 16px; border-radius: 8px; background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1.5px solid rgba(255,255,255,0.8); color: #fff; font-weight: 700; font-size: 1.1rem; letter-spacing: 0.05em; }
-    #gpsPreview { bottom: 12px; left: 12px; padding: 6px 12px; border-radius: 20px; background: rgba(15,23,42,0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+    #stampPreview { display: none; padding: 8px 16px; border-radius: 8px; background: rgba(0,0,0,0.85); border: 2px solid #fff; color: #fff; font-weight: 800; font-size: 1.2rem; letter-spacing: 0.05em; }
+    #gpsPreview { bottom: 12px; left: 12px; padding: 6px 12px; border-radius: 20px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); color: #fff; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 4px; }
     #shapePreview { position: absolute; z-index: 11; display: none; transform-origin: center center; pointer-events: none; }
     
-    /* 🎛 コントロールパネル */
-    .controls-panel { background: var(--surface); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: 0 -4px 24px rgba(0,0,0,0.04); }
+    /* =====================================
+       🎛 下部パネル (撮影モード vs 編集モード)
+       ===================================== */
+    /* 撮影時専用の巨大シャッターエリア */
+    #capturePanel { padding: 0 16px 24px 16px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+    .huge-shutter { width: 100%; height: 72px; background: var(--primary); color: #fff; border: none; border-radius: 20px; font-weight: 800; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 8px 24px rgba(225, 29, 72, 0.4); cursor: pointer; transition: transform 0.1s; }
+    .huge-shutter:active { transform: scale(0.96); background: #BE123C; }
+
+    /* 編集時専用のエディタパネル (通常時は非表示) */
+    #editPanel { display: none; background: var(--surface); color: var(--text-main); padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); flex-direction: column; gap: 12px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
     .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    
-    .tool-btn { height: 46px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-md); color: var(--text-sub); font-weight: 600; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s ease; box-shadow: var(--shadow-sm); }
-    .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3); }
-    
-    /* メインアクションボタン */
-    .action-btn { height: 54px; background: var(--text-main); color: #fff; border: none; border-radius: var(--radius-md); font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.25); cursor: pointer; transition: all 0.2s; }
-    .action-btn:active { transform: scale(0.97); }
+    .tool-btn { height: 48px; background: var(--bg-light); border: 1.5px solid var(--border); border-radius: 12px; color: var(--text-sub); font-weight: 700; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s ease; }
+    .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn-save-edit { height: 56px; background: var(--text-main); color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: var(--shadow-md); }
 
     /* =====================================
-       横画面（ランドスケープ）への完全対応
+       📱 モーダル (ギャラリー・設定)
        ===================================== */
-    @media (orientation: landscape) {
-      .main-wrap { flex-direction: row; }
-      #cameraStage { margin: 12px 0 12px 12px; }
-      .controls-panel { width: 320px; height: 100%; border-radius: var(--radius-lg) 0 0 var(--radius-lg); padding: 16px; margin-left: 12px; box-shadow: -4px 0 24px rgba(0,0,0,0.04); justify-content: center; }
-      .tools-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    /* 📱 モーダル (アニメーション付きシートUI) */
-    .modal { position: fixed; inset: 0; z-index: 100; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; flex-direction: column; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; flex-direction: column; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
     .modal.show { opacity: 1; pointer-events: auto; }
-    .m-card { flex: 1; background: var(--bg-base); border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; transform: translateY(20px) scale(0.98); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: var(--shadow-md); }
-    .modal.show .m-card { transform: translateY(0) scale(1); }
-    .m-header { height: 56px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1.1rem; flex-shrink:0; }
+    .m-card { flex: 1; background: var(--bg-light); color: var(--text-main); border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden; transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .modal.show .m-card { transform: translateY(0); }
+    
+    .m-header { height: 56px; padding: 0 16px; display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1.1rem; flex-shrink:0; }
+    .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-light); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); }
+    
     .m-body { flex: 1; overflow-y: auto; padding: 16px; }
     .m-bottom { padding: 16px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; flex-shrink:0; }
     
     /* ギャラリー項目 */
-    .g-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface); border-radius: var(--radius-md); margin-bottom: 8px; box-shadow: var(--shadow-sm); }
-    .g-thumb { width: 68px; height: 68px; border-radius: 10px; object-fit: cover; cursor: pointer; border: 1px solid var(--border); }
+    .g-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface); border-radius: var(--radius-md); margin-bottom: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+    .g-thumb { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; cursor: pointer; border: 1px solid var(--border); }
     .g-info { flex: 1; cursor: pointer; }
     
     /* 汎用 UI */
-    .icon-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--bg-base); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-sub); }
-    .input-box { width: 100%; height: 48px; border: 2px solid var(--border); border-radius: var(--radius-md); padding: 0 16px; font-size: 1.05rem; font-weight: 600; outline: none; transition: border-color 0.2s; color: var(--text-main); }
+    .input-box { width: 100%; height: 50px; border: 2px solid var(--border); border-radius: 12px; padding: 0 16px; font-size: 1.05rem; font-weight: 700; outline: none; background: var(--surface); color: var(--text-main); }
     .input-box:focus { border-color: var(--primary); }
-    .btn-primary { height: 50px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-md); font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3); transition: transform 0.15s; }
-    .btn-primary:active { transform: scale(0.97); }
     
-    #toast { position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%); z-index: 999; background: rgba(15,23,42,0.9); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; padding: 12px 24px; border-radius: 30px; font-weight: 600; display: none; white-space: nowrap; box-shadow: var(--shadow-md); }
-    #loadingOverlay { position: fixed; inset: 0; z-index: 2000; background: rgba(15,23,42,0.8); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; color: #fff; font-size: 1.2rem; font-weight: bold; flex-direction: column; }
+    #flashEffect { position: fixed; inset: 0; background: #fff; z-index: 9000; opacity: 0; pointer-events: none; transition: opacity 0.1s; }
+    #toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 999; background: rgba(255,255,255,0.95); color: var(--text-main); padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; white-space: nowrap; box-shadow: var(--shadow-md); }
   </style>
 </head>
 <body>
 
+<div id="flashEffect"></div>
+<div id="toast"></div>
+
 <div id="app">
-  <header class="header">
-    <div class="header-logo"><div class="red-mark"></div><span id="headerTitle">Field Camera</span></div>
-    <div class="header-actions">
-      <!-- 📥 読込 (SVG) -->
-      <label class="header-btn" id="btnImportBox">
+  <!-- 🪟 ヘッダー -->
+  <header class="header" id="mainHeader">
+    <div class="header-logo" id="headerLogo"><div class="red-mark"></div><span id="headerTitle">Field Camera</span></div>
+    
+    <!-- 撮影時のアクション -->
+    <div class="header-actions" id="captureActions">
+      <label class="header-btn">
         <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        <span>読込</span>
         <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
       </label>
-      <!-- 📁 一覧 (SVG) -->
-      <button class="header-btn" id="btnGallery">
+      <button class="header-btn" id="btnGallery" style="background:var(--primary); color:#fff;">
         <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-        <span>一覧(<span id="gCount" style="color:var(--primary);">0</span>)</span>
+        一覧(<span id="gCount">0</span>)
       </button>
-      <!-- ◀ 戻る (SVG) -->
-      <button class="header-btn" id="btnEditorClose" style="display:none; color:var(--primary); border-color:var(--primary-light); background:var(--primary-light);">
-        <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        <span>戻る</span>
+    </div>
+
+    <!-- 編集時のアクション -->
+    <div class="header-actions" id="editActions" style="display:none;">
+      <button class="header-btn" id="btnEditorClose" style="background:rgba(0,0,0,0.5); color:#fff;">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> キャンセル
       </button>
     </div>
   </header>
 
   <div class="main-wrap">
+    <!-- 📷 カメラステージ -->
     <main id="cameraStage">
       <video id="video" autoplay playsinline muted></video>
       <img id="editorImg" src="">
       
-      <div id="stampPreview" class="overlay-ui"></div>
-      
-      <div id="gpsPreview" class="overlay-ui">
-        <svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-        <span id="gpsText">GPS待機中...</span>
+      <!-- 四隅のカギ括弧 (デザイン用) -->
+      <div id="camGuides">
+        <div class="camera-guide cg-tl"></div><div class="camera-guide cg-tr"></div>
+        <div class="camera-guide cg-bl"></div><div class="camera-guide cg-br"></div>
+      </div>
+
+      <!-- 🔴 外周ぐるっとシャッターバンパー (撮影時のみ有効) -->
+      <div id="shutterBumpers">
+        <div class="bumper-shutter bs-top" onclick="capturePhoto()"></div>
+        <div class="bumper-shutter bs-bottom" onclick="capturePhoto()"></div>
+        <div class="bumper-shutter bs-left" onclick="capturePhoto()"></div>
+        <div class="bumper-shutter bs-right" onclick="capturePhoto()"></div>
       </div>
       
-      <!-- 四辺シャッター -->
-      <button class="float-shutter fs-top" onpointerdown="event.stopPropagation()" onclick="captureOrSave()"></button>
-      <button class="float-shutter fs-bottom" onpointerdown="event.stopPropagation()" onclick="captureOrSave()"></button>
-      <button class="float-shutter fs-left" onpointerdown="event.stopPropagation()" onclick="captureOrSave()"></button>
-      <button class="float-shutter fs-right" onpointerdown="event.stopPropagation()" onclick="captureOrSave()"></button>
+      <div id="stampPreview" class="overlay-ui"></div>
+      <div id="gpsPreview" class="overlay-ui"><span id="gpsText">GPS待機中...</span></div>
       
       <!-- 図形プレビュー -->
       <div id="shapePreview">
-        <svg id="svgArrow" width="100" height="100" viewBox="-50 -50 100 100" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4));">
+        <svg id="svgArrow" width="100" height="100" viewBox="-50 -50 100 100" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
           <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#fff" stroke-width="6" stroke-linejoin="round" />
           <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#E11D48" stroke-width="3" stroke-linejoin="round" />
         </svg>
-        <svg id="svgCircle" width="120" height="120" viewBox="-60 -60 120 120" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4));">
+        <svg id="svgCircle" width="120" height="120" viewBox="-60 -60 120 120" style="display:none; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
           <circle cx="0" cy="0" r="45" fill="none" stroke="#fff" stroke-width="12" />
           <circle cx="0" cy="0" r="45" fill="none" stroke="#E11D48" stroke-width="6" />
         </svg>
       </div>
     </main>
 
-    <!-- コントロールパネル -->
-    <section class="controls-panel">
+    <!-- 📸 撮影時用パネル -->
+    <section id="capturePanel">
+      <button class="huge-shutter" onclick="capturePhoto()">
+        <svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+        どこでもタップで撮影
+      </button>
+    </section>
+
+    <!-- ✏️ 編集時用パネル -->
+    <section id="editPanel">
       <div class="tools-grid">
         <button class="tool-btn" data-stamp="作業前">作業前</button>
         <button class="tool-btn" data-stamp="作業中">作業中</button>
         <button class="tool-btn" data-stamp="作業後">作業後</button>
-        <button class="tool-btn" id="btnCustomStamp">
-          <svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>その他
-        </button>
+        <button class="tool-btn" id="btnCustomStamp">その他</button>
       </div>
       <div class="tools-grid">
-        <button class="tool-btn" data-shape="arrow">
-          <svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>矢印
-        </button>
-        <button class="tool-btn" data-shape="circle">
-          <svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"></circle></svg>円
-        </button>
-        <button class="tool-btn" data-pos="top-left">
-          <svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><polyline points="15 3 3 3 3 15"></polyline><line x1="21" y1="21" x2="3" y2="3"></line></svg>左上
-        </button>
-        <button class="tool-btn" data-pos="bottom-right">
-          <svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><polyline points="9 21 21 21 21 9"></polyline><line x1="3" y1="3" x2="21" y2="21"></line></svg>右下
-        </button>
+        <button class="tool-btn" data-shape="arrow">➜ 矢印</button>
+        <button class="tool-btn" data-shape="circle">〇 円</button>
+        <button class="tool-btn" data-pos="top-left">↖ 左上</button>
+        <button class="tool-btn" data-pos="bottom-right">↘ 右下</button>
       </div>
-      <button class="action-btn" id="btnAction" style="margin-top:4px;">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-        <span>カメラで記録</span>
+      <button class="btn-save-edit" onclick="saveEdit()">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        編集内容を上書き保存
       </button>
     </section>
   </div>
@@ -200,21 +209,21 @@
 <section id="modalGallery" class="modal">
   <div class="m-card">
     <div class="m-header">
-      <div>写真一覧</div>
+      <div>写真一覧（タップして編集）</div>
       <button class="icon-btn" id="closeGallery"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
     </div>
-    <div style="padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-      <div style="font-size:0.9rem; font-weight:700;">選択中: <span id="selCount" style="color:var(--primary);">0</span> 枚</div>
-      <button class="header-btn" id="btnDelete" style="color:var(--primary); border-color:var(--primary-light); background:var(--primary-light);">
-        <svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> 削除
+    <div style="padding:10px 16px; background:var(--bg-light); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:0.9rem; font-weight:800;">選択中: <span id="selCount" style="color:var(--primary);">0</span> 枚</div>
+      <button class="tool-btn" id="btnDelete" style="height:36px; padding:0 12px; color:var(--primary); border-color:var(--primary);">
+        <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> 削除
       </button>
     </div>
     <div class="m-body" id="galleryList"></div>
     <div class="m-bottom">
       <div style="display:flex; gap:8px;">
-        <button class="header-btn" id="btnSelectAll" style="flex:1; height:50px; justify-content:center;">全選択/解除</button>
-        <button class="btn-primary" id="btnOpenSend" style="flex:2;">
-          <svg class="icon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> 共有・送信
+        <button class="tool-btn" id="btnSelectAll" style="flex:1; height:54px; font-size:1rem; font-weight:800;">全選択/解除</button>
+        <button class="btn-save-edit" id="btnOpenSend" style="flex:2; height:54px; background:var(--primary);">
+          <svg class="icon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> 送信・共有
         </button>
       </div>
     </div>
@@ -230,26 +239,26 @@
     </div>
     <div class="m-body" style="display:flex; flex-direction:column; gap:16px;">
       <div>
-        <label style="font-size:0.85rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:6px;">受付番号・件名</label>
+        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">受付番号・件名</label>
         <input id="sendJobNum" class="input-box" type="text" placeholder="例: 現場名など">
       </div>
       <div>
-        <label style="font-size:0.85rem; font-weight:700; color:var(--text-sub); display:block; margin-bottom:6px;">デフォルト宛先(To) ※自動コピー用</label>
+        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">デフォルト宛先(To) ※自動コピー用</label>
         <input id="sendEmail" class="input-box" type="email" placeholder="example@mail.com">
       </div>
-      <div style="font-size:0.8rem; color:var(--text-sub); line-height:1.5; background:var(--bg-base); padding:12px; border-radius:var(--radius-md);">
+      <div style="font-size:0.8rem; color:var(--text-sub); line-height:1.5; background:var(--surface); padding:12px; border-radius:var(--radius-md); border:1px solid var(--border);">
         💡 送信ボタンを押すと、宛先アドレスがコピーされ、位置情報のMapリンクが本文に挿入されます。メーラーが起動したら宛先欄に「ペースト」してください。
       </div>
     </div>
     <div class="m-bottom">
-      <button class="btn-primary" id="btnExecSend">🚀 共有メニューを開く</button>
+      <button class="btn-save-edit" id="btnExecSend" style="background:var(--primary);">🚀 共有メニューを開く</button>
     </div>
   </div>
 </section>
 
 <!-- ✏️ カスタムスタンプ -->
 <section id="modalStamp" class="modal">
-  <div class="m-card">
+  <div class="m-card" style="margin-top:auto;">
     <div class="m-header">
       <div>スタンプ作成</div>
       <button class="icon-btn" id="closeStamp"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
@@ -257,15 +266,12 @@
     <div class="m-body">
       <div style="display:flex; gap:8px; margin-bottom:20px;">
         <input id="newStampText" class="input-box" type="text" placeholder="新しいテキスト">
-        <button class="btn-primary" id="btnAddStamp" style="width:70px; padding:0;">追加</button>
+        <button class="btn-save-edit" id="btnAddStamp" style="width:80px; height:50px; background:var(--primary); font-size:1rem;">追加</button>
       </div>
       <div id="customStampList" style="display:flex; flex-direction:column; gap:8px;"></div>
     </div>
   </div>
 </section>
-
-<div id="toast"></div>
-<div id="loadingOverlay"><div id="loadText">処理中...</div></div>
 
 <script>
 /* =======================================
@@ -302,7 +308,7 @@ window.onload = async () => {
 
 function initDB() {
   return new Promise(res => {
-    const req = indexedDB.open("SiteCamDB_V4", 1);
+    const req = indexedDB.open("FieldCamProDB", 1);
     req.onupgradeneeded = e => { if(!e.target.result.objectStoreNames.contains("photos")) e.target.result.createObjectStore("photos", {keyPath:"id"}); };
     req.onsuccess = e => {
       db = e.target.result;
@@ -354,7 +360,6 @@ function setupEvents() {
   setupGestures();
 
   document.getElementById("fileInput").onchange = handleImport;
-
   document.getElementById("btnGallery").onclick = () => { renderGallery(); openM('modalGallery'); };
   document.getElementById("closeGallery").onclick = () => closeM('modalGallery');
   document.getElementById("btnEditorClose").onclick = closeEditor;
@@ -392,8 +397,8 @@ function updateUI() {
   if(currentStamp) {
     sp.style.display = "block"; sp.textContent = currentStamp;
     sp.style.left = "auto"; sp.style.right = "auto"; sp.style.top = "auto"; sp.style.bottom = "auto";
-    if(stampPos === "top-left") { sp.style.top="16px"; sp.style.left="16px"; }
-    else { sp.style.bottom="16px"; sp.style.right="16px"; }
+    if(stampPos === "top-left") { sp.style.top="20px"; sp.style.left="20px"; }
+    else { sp.style.bottom="20px"; sp.style.right="20px"; }
   } else sp.style.display = "none";
 
   if(activeShape && shapePos) {
@@ -414,7 +419,7 @@ function updateUI() {
 function setupGestures() {
   let ptrs = []; let initP = null;
   stage.addEventListener('pointerdown', e => {
-    if(!activeShape || e.target.classList.contains('float-shutter')) return;
+    if(!editMode || !activeShape) return;
     e.preventDefault(); ptrs.push(e);
     if(ptrs.length === 1) {
       if(!shapePos || Math.hypot(e.clientX - stage.getBoundingClientRect().left - shapePos.x, e.clientY - stage.getBoundingClientRect().top - shapePos.y) > 80) {
@@ -430,7 +435,7 @@ function setupGestures() {
     updateUI();
   });
   stage.addEventListener('pointermove', e => {
-    if(!activeShape || ptrs.length === 0) return;
+    if(!editMode || !activeShape || ptrs.length === 0) return;
     e.preventDefault();
     const idx = ptrs.findIndex(p => p.pointerId === e.pointerId); if(idx >= 0) ptrs[idx] = e;
     
@@ -452,14 +457,13 @@ function getPt(e) {
 }
 
 /* =======================================
-   4. 一括インポート
+   4. インポート処理
 ======================================= */
 async function handleImport(e) {
   const files = Array.from(e.target.files); if(!files.length) return;
-  showLoad(true, `読込中 0/${files.length}`);
+  toast(`読込中...`);
   
   for(let i=0; i<files.length; i++) {
-    showLoad(true, `読込中 ${i+1}/${files.length}`);
     const file = files[i];
     const bmp = await createImageBitmap(file);
     let w = bmp.width, h = bmp.height, max = 1280;
@@ -469,26 +473,29 @@ async function handleImport(e) {
     const item = { id: Date.now()+i, blob, stamp: "未編集", created: new Date().toISOString(), selected: false, coords: deviceCoords };
     photos.unshift(item); await db.transaction("photos","readwrite").objectStore("photos").put(item);
   }
-  e.target.value = ""; showLoad(false); updateUI();
+  e.target.value = ""; updateUI();
   renderGallery(); openM('modalGallery');
 }
 
 /* =======================================
-   5. エディタモード
+   5. エディタモード切替
 ======================================= */
 function openEditor(id) {
   const p = photos.find(x => x.id === id); if(!p) return;
   editMode = true; editTargetId = id; currentCoords = p.coords;
   editorImg.src = URL.createObjectURL(p.blob);
-  video.style.display = "none"; editorImg.style.display = "block";
-  document.getElementById("btnImportBox").style.display = "none";
-  document.getElementById("btnGallery").style.display = "none";
-  document.getElementById("btnEditorClose").style.display = "flex";
-  document.getElementById("headerTitle").textContent = "編集中";
   
-  // ボタンを「上書き保存」に
-  document.getElementById("btnAction").innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg><span>上書き保存</span>`;
-  document.getElementById("btnAction").style.background = "var(--text-main)";
+  // UI切替
+  video.style.display = "none"; editorImg.style.display = "block";
+  document.getElementById("captureActions").style.display = "none";
+  document.getElementById("editActions").style.display = "flex";
+  document.getElementById("mainHeader").style.background = "var(--surface)";
+  document.getElementById("mainHeader").style.color = "var(--text-main)";
+  
+  document.getElementById("camGuides").style.display = "none";
+  document.getElementById("shutterBumpers").style.display = "none";
+  document.getElementById("capturePanel").style.display = "none";
+  document.getElementById("editPanel").style.display = "flex";
   
   closeM('modalGallery');
   currentStamp = null; activeShape = null; shapePos = null; updateUI();
@@ -497,58 +504,70 @@ function openEditor(id) {
 function closeEditor() {
   editMode = false; editTargetId = null;
   video.style.display = "block"; editorImg.style.display = "none";
-  document.getElementById("btnImportBox").style.display = "flex";
-  document.getElementById("btnGallery").style.display = "flex";
-  document.getElementById("btnEditorClose").style.display = "none";
-  document.getElementById("headerTitle").textContent = "Field Camera";
   
-  // ボタンを「カメラで記録」に
-  document.getElementById("btnAction").innerHTML = `<svg class="icon" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg><span>カメラで記録</span>`;
+  // UI復元
+  document.getElementById("captureActions").style.display = "flex";
+  document.getElementById("editActions").style.display = "none";
+  document.getElementById("mainHeader").style.background = "transparent";
+  document.getElementById("mainHeader").style.color = "#fff";
+  
+  document.getElementById("camGuides").style.display = "block";
+  document.getElementById("shutterBumpers").style.display = "block";
+  document.getElementById("capturePanel").style.display = "flex";
+  document.getElementById("editPanel").style.display = "none";
   
   currentStamp = null; activeShape = null; shapePos = null; updateUI();
 }
 
 /* =======================================
-   6. 撮影・合成処理
+   6. 撮影 (フラッシュ付き) & 編集保存
 ======================================= */
-async function captureOrSave() {
-  const target = editMode ? editorImg : video;
-  const srcW = editMode ? target.naturalWidth : target.videoWidth;
-  const srcH = editMode ? target.naturalHeight : target.videoHeight;
-  if(!srcW) return toast("画像ソースがありません");
+async function capturePhoto() {
+  if(!video.videoWidth) return;
+  
+  // フラッシュエフェクト
+  const flash = document.getElementById("flashEffect");
+  flash.style.opacity = "1";
+  setTimeout(() => flash.style.opacity = "0", 100);
 
-  let w = srcW, h = srcH, max = 1280;
-  if(!editMode) {
-    if(w>h && w>max){ h=Math.round(h*max/w); w=max; } else if(h>max){ w=Math.round(w*max/h); h=max; }
-  }
-  cvs.width = w; cvs.height = h; const sc = w / srcW;
-  ctx.drawImage(target, 0, 0, w, h);
+  let w = video.videoWidth, h = video.videoHeight, max = 1280;
+  if(w>h && w>max){ h=Math.round(h*max/w); w=max; } else if(h>max){ w=Math.round(w*max/h); h=max; }
+  
+  cvs.width = w; cvs.height = h;
+  ctx.drawImage(video, 0, 0, w, h);
+  
+  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.85));
+  const item = { id: Date.now(), blob, stamp: "未編集", created: new Date().toISOString(), selected: true, coords: deviceCoords };
+  photos.unshift(item); await db.transaction("photos","readwrite").objectStore("photos").put(item);
+  
+  updateUI();
+  toast(`保存しました（計${photos.length}枚）`);
+}
 
-  if(currentStamp) drawStamp(ctx, currentStamp, w, h);
+async function saveEdit() {
+  const srcW = editorImg.naturalWidth, srcH = editorImg.naturalHeight;
+  cvs.width = srcW; cvs.height = srcH; const sc = srcW / srcW;
+  ctx.drawImage(editorImg, 0, 0, srcW, srcH);
+
+  if(currentStamp) drawStamp(ctx, currentStamp, srcW, srcH);
   if(activeShape && shapePos) {
     const pt = stageToSource(shapePos.x, shapePos.y, srcW, srcH);
-    drawShape(ctx, pt.x * sc, pt.y * sc, w, h);
+    drawShape(ctx, pt.x * sc, pt.y * sc, srcW, srcH);
   }
 
-  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.85));
-  const stampName = currentStamp || (activeShape ? "図形追加" : (editMode ? "編集済" : "写真"));
+  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.9));
+  const stampName = currentStamp || (activeShape ? "図形追加" : "編集済");
   
-  if(editMode) {
-    const item = photos.find(x => x.id === editTargetId);
-    item.blob = blob; item.stamp = stampName;
-    await db.transaction("photos","readwrite").objectStore("photos").put(item);
-    toast("上書き保存しました"); closeEditor(); renderGallery(); openM('modalGallery');
-  } else {
-    const item = { id: Date.now(), blob, stamp: stampName, created: new Date().toISOString(), selected: true, coords: deviceCoords };
-    photos.unshift(item); await db.transaction("photos","readwrite").objectStore("photos").put(item);
-    toast("撮影しました");
-  }
-  updateUI();
+  const item = photos.find(x => x.id === editTargetId);
+  item.blob = blob; item.stamp = stampName;
+  await db.transaction("photos","readwrite").objectStore("photos").put(item);
+  
+  toast("上書き保存しました"); closeEditor(); renderGallery(); openM('modalGallery');
 }
 
 function stageToSource(sx, sy, srcW, srcH) {
   const stW = stage.clientWidth, stH = stage.clientHeight;
-  const scale = editMode ? Math.min(stW/srcW, stH/srcH) : Math.max(stW/srcW, stH/srcH);
+  const scale = Math.min(stW/srcW, stH/srcH);
   const rW = srcW * scale, rH = srcH * scale;
   const offX = (stW - rW)/2, offY = (stH - rH)/2;
   return { x: Math.max(0, Math.min(srcW, (sx - offX) / scale)), y: Math.max(0, Math.min(srcH, (sy - offY) / scale)) };
@@ -561,15 +580,9 @@ function drawStamp(ctx, txt, w, h) {
   let x = m, y = m;
   if(stampPos === "bottom-right") { x = w - boxW - m; y = h - boxH - m; }
   
-  ctx.fillStyle = "rgba(15,23,42,0.85)";
-  ctx.lineJoin = "round";
-  ctx.lineWidth = 12;
-  ctx.strokeStyle = "rgba(15,23,42,0.85)";
-  ctx.strokeRect(x + 6, y + 6, boxW - 12, boxH - 12);
-  ctx.fillRect(x + 6, y + 6, boxW - 12, boxH - 12);
-
-  ctx.strokeStyle = "#fff"; ctx.lineWidth = Math.max(3, w * 0.003); 
-  ctx.strokeRect(x, y, boxW, boxH);
+  ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.lineJoin = "round"; ctx.lineWidth = 12; ctx.strokeStyle = "rgba(0,0,0,0.85)";
+  ctx.strokeRect(x+6, y+6, boxW-12, boxH-12); ctx.fillRect(x+6, y+6, boxW-12, boxH-12);
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = Math.max(3, w * 0.003); ctx.strokeRect(x, y, boxW, boxH);
   ctx.fillStyle = "#fff"; ctx.textBaseline = "middle"; ctx.fillText(txt, x + pad, y + boxH / 2);
 }
 
@@ -598,7 +611,7 @@ function drawShape(ctx, tx, ty, w, h) {
 function renderGallery() {
   const list = document.getElementById("galleryList"); list.innerHTML = "";
   document.getElementById("selCount").textContent = photos.filter(p => p.selected).length;
-  if(!photos.length) { list.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text-sub); font-weight:600;">写真がありません</div>`; return; }
+  if(!photos.length) { list.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text-sub); font-weight:700;">撮影された写真がありません</div>`; return; }
   
   photos.forEach(p => {
     const row = document.createElement("div"); row.className = "g-row";
@@ -607,7 +620,7 @@ function renderGallery() {
     const img = document.createElement("img"); img.className = "g-thumb"; img.src = URL.createObjectURL(p.blob);
     img.onclick = () => openEditor(p.id);
     const info = document.createElement("div"); info.className = "g-info";
-    const d = new Date(p.created); info.innerHTML = `<strong style="font-size:1.05rem;">${p.stamp}</strong><br><small style="color:var(--text-sub);">${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}</small>`;
+    const d = new Date(p.created); info.innerHTML = `<strong style="font-size:1.1rem; color:var(--text-main);">${p.stamp}</strong><br><small style="color:var(--text-sub);">${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}</small>`;
     info.onclick = () => openEditor(p.id);
     row.append(chk, img, info); list.appendChild(row);
   });
@@ -620,8 +633,7 @@ async function executeShare() {
   localStorage.setItem("defEmail", email);
   
   if(email) {
-    try { await navigator.clipboard.writeText(email); toast("宛先をコピーしました！"); }
-    catch(e) {}
+    try { await navigator.clipboard.writeText(email); toast("宛先をコピーしました！"); } catch(e) {}
   }
 
   const links = [...new Set(sel.filter(p => p.coords).map(p => `https://maps.google.com/?q=${p.coords.lat},${p.coords.lng}`))];
@@ -646,11 +658,11 @@ function loadSettings() {
 }
 function renderCustomStamps() {
   const list = document.getElementById("customStampList"); list.innerHTML = "";
-  if(!customStamps.length) list.innerHTML = "<div style='color:var(--text-sub); font-size:0.9rem; font-weight:600;'>登録されていません</div>";
+  if(!customStamps.length) list.innerHTML = "<div style='color:var(--text-sub); font-size:0.9rem; font-weight:700;'>登録されていません</div>";
   customStamps.forEach((t, i) => {
     const row = document.createElement("div"); row.style.display="flex"; row.style.gap="8px";
-    const btn = document.createElement("button"); btn.className = "header-btn"; btn.style.flex="1"; btn.style.height="44px"; btn.textContent = t;
-    btn.onclick = () => { currentStamp = t; document.getElementById("btnCustomStamp").innerHTML = `<svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>${t}`; updateUI(); closeM('modalStamp'); };
+    const btn = document.createElement("button"); btn.className = "tool-btn"; btn.style.flex="1"; btn.textContent = t;
+    btn.onclick = () => { currentStamp = t; document.getElementById("btnCustomStamp").textContent = t; updateUI(); closeM('modalStamp'); };
     const del = document.createElement("button"); del.className = "icon-btn"; del.innerHTML = `<svg class="icon" viewBox="0 0 24 24" style="color:var(--primary);"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
     del.onclick = () => { customStamps.splice(i, 1); localStorage.setItem("customStamps", JSON.stringify(customStamps)); renderCustomStamps(); };
     row.append(btn, del); list.appendChild(row);
@@ -668,7 +680,6 @@ function addCustomStamp() {
 function openM(id) { document.getElementById(id).classList.add("show"); }
 function closeM(id) { document.getElementById(id).classList.remove("show"); }
 let tTmr; function toast(msg) { const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block"; clearTimeout(tTmr); tTmr=setTimeout(()=>t.style.display="none",3000); }
-function showLoad(show, txt="") { const b=document.getElementById("loadingOverlay"); b.style.display = show?"flex":"none"; document.getElementById("loadText").textContent=txt; }
 </script>
 </body>
 </html>
