@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>現場写真カメラ</title>
+
+  <style>
+    :root {
+      --bg-base: #f1f5f9;
+      --surface: #ffffff;
+      --brand-red: #e60012;
+      --text-main: #0f172a;
+      --text-sub: #475569;
+      --border-color: #cbd5e1;
+      --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      --font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; user-select: none; }
+    html, body { width: 100%; height: 100%; background: var(--bg-base); color: var(--text-main); font-family: var(--font-family); overflow: hidden; overscroll-behavior: none; }
+    body { touch-action: manipulation; }
+
+    #app { width: 100%; height: 100dvh; display: flex; flex-direction: column; }
+
+    /* ヘッダー */
+    .header { height: 54px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; background: var(--surface); border-bottom: 2px solid #e2e8f0; z-index: 10; }
+    .header-logo { display: flex; align-items: center; gap: 6px; font-size: 1rem; font-weight: 700; }
+    .header-logo .red-mark { width: 5px; height: 18px; background: var(--brand-red); border-radius: 2px; }
+    .header-actions { display: flex; gap: 4px; }
+    .header-btn { height: 36px; padding: 0 10px; border-radius: 8px; background: #f8fafc; border: 1.5px solid var(--border-color); color: var(--text-main); font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; cursor: pointer; white-space: nowrap; }
+    .header-btn:active { background: #e2e8f0; }
+
+    /* カメラ＆プレビューステージ */
+    #cameraStage { position: relative; flex: 1; min-height: 0; margin: 8px; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid #cbd5e1; box-shadow: var(--card-shadow); touch-action: none; }
+    #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+    #importedImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: none; background: #000; }
+    
+    /* インポートリセットボタン */
+    #cancelImportBtn { position: absolute; top: 8px; left: 8px; z-index: 20; background: rgba(0,0,0,0.6); color: #fff; border: 1.5px solid #fff; border-radius: 50%; width: 34px; height: 34px; display: none; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+
+    /* 起動案内・エラー */
+    #cameraError { position: absolute; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(15, 23, 42, 0.85); }
+    .card-dialog { width: 100%; max-width: 300px; background: var(--surface); border-radius: 16px; padding: 24px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    
+    /* オーバーレイUI (スタンプ・GPS・矢印) */
+    #stampPreview { position: absolute; z-index: 8; display: none; padding: 6px 14px; border-radius: 6px; background: rgba(0, 0, 0, 0.85); border: 2px solid #ffffff; color: #ffffff; font-size: 1.05rem; font-weight: 700; pointer-events: none; white-space: nowrap; }
+    #gpsPreview { position: absolute; bottom: 8px; left: 8px; z-index: 8; padding: 4px 8px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); color: #ffffff; font-size: 0.75rem; font-weight: bold; pointer-events: none; white-space: nowrap; }
+    #arrowPreview { position: absolute; z-index: 9; display: none; width: 86px; height: 86px; pointer-events: none; transform: translate(-70%, -20%); }
+    .arrow-svg { width: 100%; height: 100%; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6)); }
+
+    /* 下部コントロール */
+    .controls-panel { background: var(--surface); border-top: 2px solid #e2e8f0; padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+    .tiles-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .tile-btn { height: 46px; background: #f8fafc; border: 2px solid var(--border-color); border-radius: 10px; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .tile-btn.active { background: var(--brand-red); border-color: var(--brand-red); color: #ffffff; }
+    .shutter-btn { width: 100%; height: 54px; background: #0f172a; color: #ffffff; border: none; border-radius: 12px; font-size: 1.15rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+    /* モーダル群 */
+    .modal-overlay { position: fixed; inset: 0; z-index: 100; display: none; flex-direction: column; background: rgba(15, 23, 42, 0.6); padding: 10px; }
+    .modal-overlay.show { display: flex; }
+    .modal-card { flex: 1; background: var(--surface); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; }
+    .modal-header { height: 50px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; background: #f8fafc; font-weight: bold; }
+    .modal-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .photo-tile-row { display: flex; align-items: center; gap: 10px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }
+    .photo-tile-thumb { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; }
+    .modal-bottom { padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; flex-direction: column; gap: 8px; }
+    .btn-primary { height: 46px; background: var(--brand-red); color: #fff; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+    /* PIN認証オーバーレイ */
+    #pinOverlay { position: fixed; inset: 0; z-index: 9999; background: var(--bg-base); display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .clean-input { width: 100%; height: 46px; border: 2px solid var(--border-color); border-radius: 10px; font-size: 1.1rem; font-weight: bold; outline: none; padding: 0 14px; }
+    
+    #message { position: fixed; bottom: 150px; left: 50%; transform: translateX(-50%); z-index: 200; display: none; padding: 10px 20px; border-radius: 30px; background: rgba(0,0,0,0.85); color: #fff; font-weight: 700; white-space: nowrap; }
+  </style>
+</head>
+<body>
+
+<!-- 🔒 PIN認証画面 -->
+<div id="pinOverlay">
+  <div class="card-dialog">
+    <div style="font-size:2.5rem; margin-bottom:5px;">🔒</div>
+    <h3 style="color:var(--text-main);">セキュリティ認証</h3>
+    <p style="font-size:0.85rem; color:var(--text-sub); margin-bottom:10px;">PINコードを入力してください</p>
+    <input type="password" id="pinInput" placeholder="PINキー" class="clean-input" style="text-align:center; letter-spacing:4px; margin-bottom:10px;">
+    <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:var(--text-sub); margin-bottom:15px; cursor:pointer;">
+      <input type="checkbox" id="pinRemember" style="width:18px; height:18px; accent-color:var(--brand-red);">
+      次回から入力を省略する
+    </label>
+    <button class="btn-primary" id="pinSubmitBtn" style="width:100%;">ロックを解除する</button>
+  </div>
+</div>
+
+<div id="app">
+  <header class="header">
+    <div class="header-logo"><div class="red-mark"></div><span>現場カメラ</span></div>
+    <div class="header-actions">
+      <label class="header-btn" style="cursor:pointer; background:#fff;">
+        📥 読込
+        <input type="file" id="fileInput" accept="image/*" style="display:none;">
+      </label>
+      <button class="header-btn" id="galleryButton">📁 履歴(<span id="photoCount" style="color:var(--brand-red);">0</span>)</button>
+      <button class="header-btn" id="settingsButton">⚙️</button>
+    </div>
+  </header>
+
+  <main id="cameraStage">
+    <video id="video" autoplay playsinline muted></video>
+    <img id="importedImg" src="">
+    <button id="cancelImportBtn">✕</button>
+
+    <div id="cameraError">
+      <div class="card-dialog">
+        <h2 style="font-size:1.1rem; color:var(--brand-red);">カメラエラー</h2>
+        <p style="font-size:0.85rem; color:var(--text-sub);">設定からカメラを許可するか、上部の「読込」から写真を選択してください</p>
+        <button class="btn-primary" id="retryButton" style="width:100%; margin-top:10px;">再試行する</button>
+      </div>
+    </div>
+
+    <div id="stampPreview"></div>
+    <div id="gpsPreview">GPS待機中...</div>
+
+    <div id="arrowPreview">
+      <svg viewBox="0 0 100 100" class="arrow-svg">
+        <line x1="20" y1="80" x2="72" y2="28" stroke="#ffffff" stroke-width="14" stroke-linecap="round"/>
+        <line x1="20" y1="80" x2="72" y2="28" stroke="#e60012" stroke-width="8" stroke-linecap="round"/>
+        <polygon points="50,15 90,10 85,50" fill="#e60012" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </main>
+
+  <section class="controls-panel">
+    <div class="tiles-grid">
+      <button class="tile-btn toolButton active" data-stamp="作業前">作業前</button>
+      <button class="tile-btn toolButton" data-stamp="作業中">作業中</button>
+      <button class="tile-btn toolButton" data-stamp="作業後">作業後</button>
+      <button class="tile-btn toolButton" id="arrowButton">➜ 矢印</button>
+    </div>
+    <button class="shutter-btn" id="captureButton">
+      <div style="width:12px; height:12px; background:var(--brand-red); border-radius:50%;"></div>
+      <span>記録する</span>
+    </button>
+  </section>
+</div>
+
+<!-- 📁 ギャラリーモーダル -->
+<section id="gallery" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>📁 撮影済み写真一覧</div>
+      <button class="header-btn" id="closeGallery">閉じる</button>
+    </div>
+    <div style="padding:8px 14px; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:0.85rem; font-weight:bold; color:var(--text-sub);">選択中: <strong id="selectedCountText" style="color:var(--brand-red);">0</strong> 枚</div>
+      <div style="display:flex; gap:6px;">
+        <button class="header-btn" id="btnDeleteSelected" style="color:var(--brand-red); border-color:#fca5a5; background:#fef2f2;">🗑 選択削除</button>
+      </div>
+    </div>
+    <div class="modal-body" id="galleryList"></div>
+    <div class="modal-bottom">
+      <input id="jobNumber" class="clean-input" type="text" placeholder="受付番号（例: 26H0043982）">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1.3fr; gap:6px; margin-top:6px;">
+        <button class="tile-btn" id="btnSelectAllToggle" style="height:46px; font-size:0.85rem;">全選択/解除</button>
+        <button class="tile-btn" id="btnSaveToDevice" style="height:46px; font-size:0.85rem;">📥 保存</button>
+        <button class="btn-primary" id="sendButton">✉ 共有・送信</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ⚙ 設定モーダル -->
+<section id="settings" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>⚙️ 設定</div>
+      <button class="header-btn" id="closeSettings">閉じる</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label style="font-size:0.9rem; font-weight:700; display:block; margin-bottom:8px;">スタンプの位置</label>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button class="tile-btn" data-position="top-left">↖ 左上</button>
+          <button class="tile-btn" data-position="top-right">↗ 右上</button>
+          <button class="tile-btn" data-position="bottom-left">↙ 左下</button>
+          <button class="tile-btn" data-position="bottom-right">↘ 右下</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <label style="font-size:0.9rem; font-weight:700; display:block; margin-bottom:8px;">矢印の大きさ</label>
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+          <button class="tile-btn" data-arrow-size="0.7">小</button>
+          <button class="tile-btn" data-arrow-size="1">標準</button>
+          <button class="tile-btn" data-arrow-size="1.4">大</button>
+          <button class="tile-btn" data-arrow-size="1.8">特大</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="message"></div>
+
+<script>
+/* =========================================================
+   1. PIN認証 & 初期化
+========================================================= */
+const PIN_CODE = "1903";
+document.addEventListener("DOMContentLoaded", () => {
+  if (localStorage.getItem("site_camera_auth") === "true") {
+    document.getElementById("pinOverlay").style.display = "none";
+    initApp();
+  }
+});
+document.getElementById("pinSubmitBtn").addEventListener("click", () => {
+  if (document.getElementById("pinInput").value === PIN_CODE) {
+    if (document.getElementById("pinRemember").checked) localStorage.setItem("site_camera_auth", "true");
+    document.getElementById("pinOverlay").style.display = "none";
+    initApp();
+  } else {
+    alert("PINコードが間違っています");
+  }
+});
+
+/* =========================================================
+   2. 状態管理・DB・GPS
+========================================================= */
+let db, photos = [];
+let stream, importMode = false, cameraStarted = false;
+let currentStamp = "作業前", isArrowActive = false;
+let stampPosition = localStorage.getItem("stampPosition") || "top-right";
+let arrowSize = Number(localStorage.getItem("arrowSize") || "1");
+let arrowPoint = null, draggingArrow = false;
+
+// 位置情報管理（画像には焼かず、裏で保持してメール文面に添付用）
+let deviceCoords = null;
+let currentCoords = null; 
+
+const video = document.getElementById("video");
+const importedImg = document.getElementById("importedImg");
+const cameraStage = document.getElementById("cameraStage");
+
+async function initApp() {
+  await initDB();
+  startCamera();
+  startGps();
+  updateStampPreview();
+  setupEvents();
+  updateSettingsUI();
+}
+
+function startGps() {
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(pos => {
+      deviceCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      if (!importMode) {
+        currentCoords = deviceCoords;
+        document.getElementById("gpsPreview").textContent = "📍 GPS取得済";
+      }
+    }, () => {
+      if (!importMode) document.getElementById("gpsPreview").textContent = "GPS待機中...";
+    }, { enableHighAccuracy: true });
+  } else {
+    document.getElementById("gpsPreview").textContent = "GPS非対応";
+  }
+}
+
+async function startCamera() {
+  document.getElementById("cameraError").style.display = "none";
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    video.srcObject = stream;
+    cameraStarted = true;
+  } catch (e) {
+    document.getElementById("cameraError").style.display = "flex";
+  }
+}
+
+/* =========================================================
+   3. 軽量Exifパーサー (インポート写真のGPS抽出用)
+========================================================= */
+function getExifGPS(file) {
+  return new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const v = new DataView(e.target.result);
+        if (v.getUint16(0, false) !== 0xFFD8) return res(null);
+        let len = v.byteLength, off = 2;
+        while (off < len) {
+          const m = v.getUint16(off, false);
+          if (m === 0xFFE1) {
+            if (v.getUint32(off + 4, false) !== 0x45786966) return res(null);
+            const little = v.getUint16(off + 10, false) === 0x4949;
+            const tiff = off + 10;
+            const ifd0 = tiff + v.getUint32(tiff + 4, little);
+            const ent = v.getUint16(ifd0, little);
+            let gpsOff = null;
+            for (let i = 0; i < ent; i++) {
+              if (v.getUint16(ifd0 + 2 + i * 12, little) === 0x8825) {
+                gpsOff = tiff + v.getUint32(ifd0 + 2 + i * 12 + 8, little); break;
+              }
+            }
+            if (!gpsOff) return res(null);
+            const gEnt = v.getUint16(gpsOff, little);
+            let lat, lng, latR, lngR;
+            for (let i = 0; i < gEnt; i++) {
+              const tag = v.getUint16(gpsOff + 2 + i * 12, little);
+              const dOff = tiff + v.getUint32(gpsOff + 2 + i * 12 + 8, little);
+              if (tag === 1) latR = String.fromCharCode(v.getUint8(gpsOff + 2 + i * 12 + 8));
+              if (tag === 3) lngR = String.fromCharCode(v.getUint8(gpsOff + 2 + i * 12 + 8));
+              if (tag === 2) lat = [0,1,2].map(j => v.getUint32(dOff + j*8, little)/v.getUint32(dOff + j*8 + 4, little));
+              if (tag === 4) lng = [0,1,2].map(j => v.getUint32(dOff + j*8, little)/v.getUint32(dOff + j*8 + 4, little));
+            }
+            if (lat && lng && latR && lngR) {
+              let fLat = lat[0] + lat[1]/60 + lat[2]/3600; if(latR==='S') fLat = -fLat;
+              let fLng = lng[0] + lng[1]/60 + lng[2]/3600; if(lngR==='W') fLng = -fLng;
+              return res({ lat: fLat, lng: fLng });
+            }
+            return res(null);
+          }
+          off += v.getUint16(off + 2, false) + 2;
+        }
+      } catch(err) {}
+      res(null);
+    };
+    reader.readAsArrayBuffer(file.slice(0, 128 * 1024));
+  });
+}
+
+/* =========================================================
+   4. ファイルインポート（読込）処理
+========================================================= */
+document.getElementById("fileInput").addEventListener("change", async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // EXIFからGPSを抽出（成功すれば優先適用、なければ現在地）
+  const exifGps = await getExifGPS(file);
+  if (exifGps) {
+    currentCoords = exifGps;
+    document.getElementById("gpsPreview").textContent = "📍 写真のGPS適用";
+  } else {
+    currentCoords = deviceCoords;
+    document.getElementById("gpsPreview").textContent = currentCoords ? "📍 現在地を適用" : "GPS待機中...";
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    importedImg.src = evt.target.result;
+    importedImg.style.display = "block";
+    video.style.display = "none";
+    document.getElementById("cancelImportBtn").style.display = "flex";
+    importMode = true;
+    arrowPoint = null; updateArrowPreview();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = "";
+});
+
+document.getElementById("cancelImportBtn").addEventListener("click", () => {
+  importedImg.src = "";
+  importedImg.style.display = "none";
+  video.style.display = "block";
+  document.getElementById("cancelImportBtn").style.display = "none";
+  importMode = false;
+  arrowPoint = null; updateArrowPreview();
+  
+  currentCoords = deviceCoords;
+  document.getElementById("gpsPreview").textContent = currentCoords ? "📍 GPS取得済" : "GPS待機中...";
+});
+
+/* =========================================================
+   5. UI・矢印・スタンプ操作
+========================================================= */
+function setupEvents() {
+  document.querySelectorAll("[data-stamp]").forEach(btn => {
+    btn.addEventListener("click", function() {
+      currentStamp = currentStamp === this.dataset.stamp ? null : this.dataset.stamp;
+      document.querySelectorAll("[data-stamp]").forEach(b => b.classList.toggle("active", b.dataset.stamp === currentStamp));
+      updateStampPreview();
+    });
+  });
+
+  document.getElementById("arrowButton").addEventListener("click", function() {
+    isArrowActive = !isArrowActive;
+    this.classList.toggle("active", isArrowActive);
+    if (!isArrowActive) { arrowPoint = null; draggingArrow = false; }
+    else if (!arrowPoint) showMessage("画面をタップして矢印を配置");
+    updateArrowPreview();
+  });
+
+  cameraStage.addEventListener("pointerdown", (e) => {
+    if (!isArrowActive) return;
+    e.preventDefault();
+    const pt = getStagePoint(e);
+    if (arrowPoint && Math.hypot(pt.x - arrowPoint.x, pt.y - arrowPoint.y) < 80) draggingArrow = true;
+    else { arrowPoint = pt; draggingArrow = true; }
+    updateArrowPreview();
+  });
+  cameraStage.addEventListener("pointermove", (e) => {
+    if (!draggingArrow) return; e.preventDefault();
+    arrowPoint = getStagePoint(e); updateArrowPreview();
+  });
+  cameraStage.addEventListener("pointerup", () => draggingArrow = false);
+  
+  document.getElementById("captureButton").addEventListener("click", capturePhoto);
+  document.getElementById("retryButton").addEventListener("click", startCamera);
+  
+  // モーダル
+  document.getElementById("galleryButton").addEventListener("click", () => { document.getElementById("gallery").classList.add("show"); renderGallery(); });
+  document.getElementById("closeGallery").addEventListener("click", () => document.getElementById("gallery").classList.remove("show"));
+  document.getElementById("settingsButton").addEventListener("click", () => document.getElementById("settings").classList.add("show"));
+  document.getElementById("closeSettings").addEventListener("click", () => document.getElementById("settings").classList.remove("show"));
+  
+  document.querySelectorAll("[data-position]").forEach(btn => {
+    btn.addEventListener("click", function() {
+      stampPosition = this.dataset.position; localStorage.setItem("stampPosition", stampPosition);
+      updateSettingsUI(); updateStampPreview();
+    });
+  });
+  document.querySelectorAll("[data-arrow-size]").forEach(btn => {
+    btn.addEventListener("click", function() {
+      arrowSize = Number(this.dataset.arrowSize); localStorage.setItem("arrowSize", arrowSize);
+      updateSettingsUI(); updateArrowPreview();
+    });
+  });
+
+  document.getElementById("btnSelectAllToggle").addEventListener("click", () => {
+    const check = photos.some(p => !p.selected);
+    photos.forEach(p => p.selected = check); renderGallery();
+  });
+  document.getElementById("btnDeleteSelected").addEventListener("click", () => {
+    const sel = photos.filter(p => p.selected);
+    if(sel.length && confirm(`選択した${sel.length}枚を削除しますか？`)) {
+      sel.forEach(p => db.transaction("photos","readwrite").objectStore("photos").delete(p.id));
+      photos = photos.filter(p => !p.selected);
+      renderGallery(); document.getElementById("photoCount").textContent = photos.length;
+    }
+  });
+  document.getElementById("btnSaveToDevice").addEventListener("click", savePhotos);
+  document.getElementById("sendButton").addEventListener("click", sharePhotos);
+}
+
+function updateStampPreview() {
+  const sp = document.getElementById("stampPreview");
+  if (!currentStamp) { sp.style.display = "none"; return; }
+  sp.textContent = currentStamp; sp.style.display = "block";
+  sp.style.left = "auto"; sp.style.right = "auto"; sp.style.top = "auto"; sp.style.bottom = "auto";
+  const m = 12;
+  if (stampPosition === "top-left") { sp.style.left = m+"px"; sp.style.top = m+"px"; }
+  else if (stampPosition === "top-right") { sp.style.right = m+"px"; sp.style.top = m+"px"; }
+  else if (stampPosition === "bottom-left") { sp.style.left = m+"px"; sp.style.bottom = m+"px"; }
+  else if (stampPosition === "bottom-right") { sp.style.right = m+"px"; sp.style.bottom = m+"px"; }
+}
+
+function updateArrowPreview() {
+  const ap = document.getElementById("arrowPreview");
+  if (!isArrowActive || !arrowPoint) { ap.style.display = "none"; return; }
+  ap.style.display = "block"; ap.style.left = arrowPoint.x + "px"; ap.style.top = arrowPoint.y + "px";
+  ap.style.transform = `translate(-70%, -20%) scale(${arrowSize})`;
+}
+
+function getStagePoint(e) {
+  const r = cameraStage.getBoundingClientRect();
+  return { x: Math.max(0, Math.min(r.width, e.clientX - r.left)), y: Math.max(0, Math.min(r.height, e.clientY - r.top)) };
+}
+
+/* =========================================================
+   6. 撮影・リサイズ・焼き込み合成
+========================================================= */
+function stageToSource(stageX, stageY) {
+  const stW = cameraStage.clientWidth, stH = cameraStage.clientHeight;
+  const srcW = importMode ? importedImg.naturalWidth : video.videoWidth;
+  const srcH = importMode ? importedImg.naturalHeight : video.videoHeight;
+  const scale = importMode ? Math.min(stW/srcW, stH/srcH) : Math.max(stW/srcW, stH/srcH);
+  const rW = srcW * scale, rH = srcH * scale;
+  const offX = (stW - rW) / 2, offY = (stH - rH) / 2;
+  return { x: Math.max(0, Math.min(srcW, (stageX - offX) / scale)), y: Math.max(0, Math.min(srcH, (stageY - offY) / scale)) };
+}
+
+function capturePhoto() {
+  const srcW = importMode ? importedImg.naturalWidth : video.videoWidth;
+  const srcH = importMode ? importedImg.naturalHeight : video.videoHeight;
+  if (!srcW) return showMessage("画像ソースがありません");
+
+  const maxDim = 1280;
+  let w = srcW, h = srcH;
+  if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+  else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+
+  const cvs = document.createElement("canvas");
+  cvs.width = w; cvs.height = h;
+  const ctx = cvs.getContext("2d");
+  const scale = w / srcW;
+
+  ctx.drawImage(importMode ? importedImg : video, 0, 0, w, h);
+
+  if (currentStamp) drawStamp(ctx, currentStamp, w, h);
+  if (isArrowActive && arrowPoint) {
+    const pt = stageToSource(arrowPoint.x, arrowPoint.y);
+    drawArrow(ctx, pt.x * scale, pt.y * scale, w, h);
+  }
+  // ※画像へのGPS焼き込み機能は廃止
+
+  cvs.toBlob(blob => {
+    if (!blob) return;
+    const item = { 
+      id: Date.now(), 
+      blob: blob, 
+      stamp: currentStamp || (isArrowActive ? "矢印写真" : "写真"), 
+      created: new Date().toISOString(), 
+      selected: true,
+      coords: currentCoords // メール添付用に保持
+    };
+    photos.unshift(item);
+    db.transaction("photos","readwrite").objectStore("photos").put(item);
+    document.getElementById("photoCount").textContent = photos.length;
+    showMessage("写真を保存しました");
+  }, "image/jpeg", 0.85);
+}
+
+function drawStamp(ctx, txt, w, h) {
+  const fz = Math.max(38, Math.round(w * 0.038)), pad = fz * 0.35, m = Math.round(w * 0.025);
+  ctx.font = `bold ${fz}px sans-serif`;
+  const boxW = ctx.measureText(txt).width + pad * 2, boxH = fz + pad * 2;
+  let x = m, y = m;
+  if (stampPosition === "top-right") { x = w - boxW - m; }
+  else if (stampPosition === "bottom-left") { y = h - boxH - m; }
+  else if (stampPosition === "bottom-right") { x = w - boxW - m; y = h - boxH - m; }
+  ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.fillRect(x, y, boxW, boxH);
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = Math.max(3, w * 0.003); ctx.strokeRect(x, y, boxW, boxH);
+  ctx.fillStyle = "#fff"; ctx.textBaseline = "middle"; ctx.fillText(txt, x + pad, y + boxH / 2);
+}
+
+function drawArrow(ctx, tx, ty, w, h) {
+  const sc = (Math.min(w, h) / 1000) * arrowSize;
+  const sx = tx - 90 * sc * 0.75, sy = ty + 90 * sc * 0.75;
+  const ang = Math.atan2(ty - sy, tx - sx);
+  ctx.save(); ctx.lineCap = "round";
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 14 * sc; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx - 8 * sc * Math.cos(ang), ty - 8 * sc * Math.sin(ang)); ctx.stroke();
+  ctx.strokeStyle = "#e60012"; ctx.lineWidth = 8 * sc; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx - 8 * sc * Math.cos(ang), ty - 8 * sc * Math.sin(ang)); ctx.stroke();
+  const hl = 32 * sc;
+  ctx.fillStyle = "#e60012"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 3.5 * sc; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx - hl * Math.cos(ang - Math.PI/6), ty - hl * Math.sin(ang - Math.PI/6)); ctx.lineTo(tx - hl * Math.cos(ang + Math.PI/6), ty - hl * Math.sin(ang + Math.PI/6)); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+/* =========================================================
+   7. ギャラリー・共有・DB
+========================================================= */
+function initDB() {
+  return new Promise(res => {
+    const req = indexedDB.open("SiteCameraDB", 1);
+    req.onupgradeneeded = e => { if (!e.target.result.objectStoreNames.contains("photos")) e.target.result.createObjectStore("photos", { keyPath: "id" }); };
+    req.onsuccess = e => {
+      db = e.target.result;
+      db.transaction("photos").objectStore("photos").getAll().onsuccess = ev => {
+        photos = ev.target.result.sort((a,b)=>b.id-a.id);
+        document.getElementById("photoCount").textContent = photos.length;
+        res();
+      };
+    };
+  });
+}
+
+function renderGallery() {
+  const list = document.getElementById("galleryList"); list.innerHTML = "";
+  document.getElementById("selectedCountText").textContent = photos.filter(p => p.selected).length;
+  if (!photos.length) { list.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-sub);">写真がありません</div>`; return; }
+  
+  photos.forEach(p => {
+    const row = document.createElement("div"); row.className = "photo-tile-row";
+    const chk = document.createElement("input"); chk.type = "checkbox"; chk.checked = p.selected; chk.style.width = "22px"; chk.style.height = "22px"; chk.style.accentColor = "var(--brand-red)";
+    chk.onchange = () => { p.selected = chk.checked; document.getElementById("selectedCountText").textContent = photos.filter(x => x.selected).length; };
+    const img = document.createElement("img"); img.className = "photo-tile-thumb"; img.src = URL.createObjectURL(p.blob);
+    const info = document.createElement("div"); info.style.flex = "1";
+    const d = new Date(p.created); info.innerHTML = `<strong>${p.stamp}</strong><br><small style="color:var(--text-sub);">${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}</small>`;
+    row.append(chk, img, info); list.appendChild(row);
+  });
+}
+
+function updateSettingsUI() {
+  document.querySelectorAll("[data-position]").forEach(b => b.classList.toggle("active", b.dataset.position === stampPosition));
+  document.querySelectorAll("[data-arrow-size]").forEach(b => b.classList.toggle("active", Number(b.dataset.arrowSize) === arrowSize));
+}
+
+async function savePhotos() {
+  const sel = photos.filter(p => p.selected); if (!sel.length) return showMessage("写真を選択してください");
+  sel.forEach((p, i) => { const a = document.createElement("a"); a.href = URL.createObjectURL(p.blob); a.download = `現場写真_${Date.now()}_${i+1}.jpg`; a.click(); });
+  showMessage("ダウンロードを開始しました");
+}
+
+async function sharePhotos() {
+  const sel = photos.filter(p => p.selected); 
+  if (!sel.length) return showMessage("写真を選択してください");
+  
+  const num = document.getElementById("jobNumber").value.trim() || "未入力";
+  
+  // ★ GPS情報を元にGoogle Mapリンクを生成（重複排除）
+  const links = [];
+  sel.forEach(p => {
+    if (p.coords) {
+      const url = `https://maps.google.com/?q=${p.coords.lat},${p.coords.lng}`;
+      if (!links.includes(url)) links.push(url);
+    }
+  });
+
+  let textBody = `受付番号: ${num}`;
+  if (links.length > 0) {
+    textBody += `\n\n【撮影位置情報】\n` + links.join("\n");
+  }
+
+  const files = await Promise.all(sel.map(async (p, i) => new File([await p.blob.arrayBuffer()], `現場_${num}_${i+1}.jpg`, { type: "image/jpeg" })));
+  
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try { await navigator.share({ text: textBody, files }); } catch(e) {}
+  } else showMessage("共有機能が非対応です");
+}
+
+let msgTimer;
+function showMessage(txt) {
+  const el = document.getElementById("message"); el.textContent = txt; el.style.display = "block";
+  clearTimeout(msgTimer); msgTimer = setTimeout(() => el.style.display = "none", 2500);
+}
+</script>
+</body>
+</html>
