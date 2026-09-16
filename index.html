@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Field Camera Pro</title>
+  <title>Field Camera</title>
 
   <style>
     :root {
@@ -24,101 +24,135 @@
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; user-select: none; }
     html, body { width: 100%; height: 100%; background: var(--bg-dark); color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
     
-    .icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
     
     #app { width: 100%; height: 100dvh; display: flex; flex-direction: column; }
     
     /* 🪟 Header */
     .header { 
       padding-top: env(safe-area-inset-top); 
-      height: calc(56px + env(safe-area-inset-top)); 
-      padding-left: max(16px, env(safe-area-inset-left));
-      padding-right: max(16px, env(safe-area-inset-right));
+      height: calc(54px + env(safe-area-inset-top)); 
+      padding-left: max(12px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
       display: flex; align-items: center; justify-content: space-between; z-index: 10; flex-shrink: 0; background: var(--bg-dark); 
     }
-    .header-logo { font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
-    .red-mark { width: 6px; height: 18px; background: var(--primary); border-radius: 3px; }
-    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .header.edit-mode { background: var(--surface); color: var(--text-main); border-bottom: 1px solid var(--border); }
     
-    .header-btn { height: 38px; padding: 0 12px; border-radius: 10px; background: rgba(255,255,255,0.15); font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; cursor: pointer; color: #fff; border: none; }
+    .header-actions { display: flex; gap: 8px; align-items: center; width: 100%; justify-content: space-between; }
+    .header-btn { height: 36px; padding: 0 10px; border-radius: 8px; background: rgba(255,255,255,0.2); font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #fff; border: none; white-space: nowrap; }
     .header-btn.primary { background: var(--primary); }
+    .header.edit-mode .header-btn { background: var(--bg-light); color: var(--text-main); border: 1px solid var(--border); }
     
     /* =====================================
        📷 Main Content & Layout
        ===================================== */
-    #mainContent { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; background: var(--bg-dark); }
+    #mainContent { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; background: var(--bg-dark); transition: background 0.2s; }
+    #mainContent.edit-mode { background: var(--bg-light); }
     
-    /* 反対側シャッター (縦画面は上、横画面は左) */
-    .alt-shutter-container { padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: var(--surface); flex-shrink: 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+    /* 🔴 丸型シャッターボタン (純正カメラ風) */
+    .shutter-circle-btn {
+      width: 64px; height: 64px; border-radius: 50%;
+      background-color: #fff; border: 3px solid #cbd5e1;
+      box-shadow: 0 0 0 4px var(--bg-dark) inset, 0 4px 12px rgba(0,0,0,0.3);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s ease; padding: 0;
+    }
+    .shutter-circle-btn:active { transform: scale(0.92); }
+    .shutter-icon { display: none; width: 28px; height: 28px; color: #fff; }
+    
+    /* 編集モード時のシャッターボタン (上書き保存に変化) */
+    .shutter-circle-btn.edit-save {
+      background-color: var(--text-main); border-color: var(--text-main); box-shadow: none;
+    }
+    .shutter-circle-btn.edit-save .shutter-icon { display: block; }
 
-    /* カメラ領域 */
+    /* シャッターコンテナ */
+    .alt-shutter-container { padding: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent; }
+    .shutter-wrapper { display: flex; justify-content: center; align-items: center; padding: 4px 0; flex-shrink: 0; }
+
+    /* 🔲 カメラ・ファインダー領域 */
     #cameraArea { 
       flex: 1; display: flex; justify-content: center; align-items: center;
-      padding: 16px max(24px, env(safe-area-inset-right)) 16px max(24px, env(safe-area-inset-left)); 
+      padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); 
       position: relative; min-height: 0; min-width: 0; overflow: hidden;
     }
     
-    /* 🔲 Viewfinder Wrapper */
     #cameraWrapper {
-      position: relative;
-      width: 100%; height: 100%; max-width: 100%; max-height: 100%;
+      position: relative; width: 100%; height: 100%; max-width: 100%; max-height: 100%;
       background: #000; border-radius: 8px; overflow: hidden; 
       box-shadow: 0 10px 30px rgba(0,0,0,0.6); pointer-events: auto;
       display: flex; justify-content: center; align-items: center;
     }
+    #mainContent.edit-mode #cameraWrapper { box-shadow: var(--shadow-md); border: 1px solid var(--border); }
     
     #video, #editorImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
     #editorImg { display: none; }
 
-    /* 🎨 Overlay UI Elements */
+    /* 🎨 オーバーレイ UI */
     .overlay-ui { position: absolute; z-index: 20; pointer-events: none; }
     #stampPreview { display: none; padding: 6px 14px; border-radius: 6px; background: rgba(0,0,0,0.85); border: 2px solid #fff; color: #fff; font-weight: 800; font-size: 1.1rem; letter-spacing: 0.05em; }
     #shapePreview { position: absolute; z-index: 21; display: none; transform-origin: center center; pointer-events: none; }
 
     /* =====================================
-       🎛 Tools Panel (Main Shutter)
+       🎛 ツールパネル
        ===================================== */
-    #toolsPanel { background: var(--surface); padding: 12px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; z-index: 25; }
-    
+    #toolsPanel { background: transparent; padding: 8px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; z-index: 25; }
+    #mainContent.edit-mode #toolsPanel { background: var(--surface); border-radius: 20px 20px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
+
     .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-    .tool-btn { height: 46px; background: var(--bg-light); border: 1.5px solid var(--border); border-radius: 10px; color: var(--text-main); font-weight: 800; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.1s; }
+    
+    /* ツールボタン (ダーク/ライト対応) */
+    .tool-btn { height: 42px; background: #1e293b; border: 1.5px solid #334155; border-radius: 8px; color: #f8fafc; font-weight: 800; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.1s; }
     .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
     
-    /* シャッターボタン共通スタイル */
-    .action-btn { width: 100%; height: 52px; background: var(--text-main); color: #fff; border: none; border-radius: 10px; font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-    .action-btn:active { transform: scale(0.98); }
+    #mainContent.edit-mode .tool-btn { background: var(--bg-light); border-color: var(--border); color: var(--text-main); }
+    #mainContent.edit-mode .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
-    /* Landscape Mode Adaptation (横画面時のレイアウト) */
+    /* =====================================
+       📱 Landscape Mode (横画面)
+       ===================================== */
     @media (orientation: landscape) {
       #mainContent { flex-direction: row; }
       
-      /* 横画面時は左側に反対側シャッターを配置 */
-      .alt-shutter-container { width: 130px; border-bottom: none; border-right: 1px solid var(--border); padding: 16px; }
-      .alt-shutter-container .action-btn { height: 100%; flex-direction: column; font-size: 1.2rem; }
+      .alt-shutter-container { width: 100px; border-bottom: none; display: flex; align-items: center; justify-content: center; }
+      #mainContent.edit-mode .alt-shutter-container { border-right: 1px solid var(--border); background: var(--surface); }
+
+      #cameraArea { padding: max(8px, env(safe-area-inset-top)) 16px max(8px, env(safe-area-inset-bottom)) 16px; }
       
-      #cameraArea { padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) 16px; }
+      #toolsPanel { width: 280px; justify-content: flex-start; }
+      #mainContent.edit-mode #toolsPanel { border-radius: 24px 0 0 24px; border-left: 1px solid var(--border); }
       
-      #toolsPanel { width: 320px; border-radius: 24px 0 0 24px; border-left: 1px solid var(--border); justify-content: center; }
       .tools-grid { grid-template-columns: repeat(2, 1fr); }
+      .shutter-wrapper { margin-top: auto; margin-bottom: 8px; }
     }
 
-    /* Modals */
+    /* =====================================
+       📁 Modals & Status Tags
+       ===================================== */
     .modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; flex-direction: column; padding: 0; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
     .modal.show { opacity: 1; pointer-events: auto; }
     .m-card { flex: 1; margin: env(safe-area-inset-top) 0 0 0; background: var(--bg-light); color: var(--text-main); border-radius: 24px 24px 0 0; display: flex; flex-direction: column; overflow: hidden; transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     .modal.show .m-card { transform: translateY(0); }
     
-    .m-header { height: 56px; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1.1rem; flex-shrink:0; }
+    .m-header { height: 56px; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1rem; flex-shrink:0; }
     .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-light); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); }
     
     .m-body { flex: 1; overflow-y: auto; padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left)); }
-    .m-bottom { padding: 16px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; flex-shrink:0; }
+    .m-bottom { padding: 12px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; flex-shrink:0; }
     
     .g-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface); border-radius: var(--radius-md); margin-bottom: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
     .g-thumb { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; cursor: pointer; border: 1px solid var(--border); }
     .g-info { flex: 1; cursor: pointer; }
     
-    .input-box { width: 100%; height: 50px; border: 2px solid var(--border); border-radius: 12px; padding: 0 16px; font-size: 1.05rem; font-weight: 700; outline: none; background: var(--surface); color: var(--text-main); }
+    /* 🏷 ステータスバッジ */
+    .status-tags { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+    .status-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; white-space: nowrap; }
+    .badge-saved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .badge-shared { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .badge-none { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
+    .input-box { width: 100%; height: 48px; border: 2px solid var(--border); border-radius: 10px; padding: 0 16px; font-size: 1rem; font-weight: 700; outline: none; background: var(--surface); color: var(--text-main); }
+    .action-btn { height: 48px; background: var(--text-main); color: #fff; border: none; border-radius: 8px; font-weight: 800; font-size: 1rem; cursor: pointer; }
     
     #flashEffect { position: fixed; inset: 0; background: #fff; z-index: 9000; opacity: 0; pointer-events: none; transition: opacity 0.1s; }
     #toast { position: fixed; top: calc(70px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(255,255,255,0.95); color: var(--text-main); padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; white-space: nowrap; box-shadow: var(--shadow-md); text-align: center; }
@@ -131,22 +165,20 @@
 
 <div id="app">
   <!-- 🪟 Header -->
-  <header class="header">
-    <div class="header-logo"><div class="red-mark"></div><span id="headerTitle">Field Camera Pro</span></div>
-    
+  <header class="header" id="mainHeader">
     <div class="header-actions" id="mainActions">
-      <button class="header-btn" onclick="showFullScreenHelp()" title="全画面表示について">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-      </button>
-      <label class="header-btn" style="padding:0 12px;">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
-      </label>
+      <div style="display:flex; gap:6px;">
+        <button class="header-btn" onclick="showFullScreenHelp()">⛶ 全画面</button>
+        <label class="header-btn" style="padding:0 12px;">
+          📥 読込
+          <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
+        </label>
+      </div>
       <button class="header-btn primary" id="btnGallery">一覧(<span id="gCount">0</span>)</button>
     </div>
 
-    <div class="header-actions" id="editActions" style="display:none;">
-      <button class="header-btn" id="btnEditorClose" style="background:rgba(255,255,255,0.2);">
+    <div class="header-actions" id="editActions" style="display:none; justify-content:flex-end;">
+      <button class="header-btn" id="btnEditorClose" style="background:var(--bg-light); color:var(--text-main); border:1px solid var(--border);">
         <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> 戻る
       </button>
     </div>
@@ -157,8 +189,8 @@
     
     <!-- 🎛 反対側シャッター (縦なら上、横なら左) -->
     <div class="alt-shutter-container">
-      <button class="action-btn btn-action-sync" onclick="captureOrSave()">
-        📸 <span class="action-text">カメラで記録</span>
+      <button class="shutter-circle-btn btn-action-sync" onclick="captureOrSave()">
+        <svg class="shutter-icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
       </button>
     </div>
 
@@ -184,7 +216,7 @@
       </main>
     </div>
 
-    <!-- 🎛 Tools Panel (メインシャッター含む) -->
+    <!-- 🎛 Tools Panel -->
     <section id="toolsPanel">
       <div class="tools-grid">
         <button class="tool-btn" data-stamp="作業前">作業前</button>
@@ -195,12 +227,14 @@
       <div class="tools-grid">
         <button class="tool-btn" data-shape="arrow">➜ 矢印</button>
         <button class="tool-btn" data-shape="circle">〇 円</button>
-        <!-- Single Cyclic Toggle Button for Position -->
         <button class="tool-btn" id="btnPosCycle" style="grid-column: span 2;" onclick="cycleStampPosition()">📍 位置: 左上</button>
       </div>
-      <button class="action-btn btn-action-sync" onclick="captureOrSave()" style="margin-top:8px;">
-        📸 <span class="action-text">カメラで記録</span>
-      </button>
+      <!-- メインシャッター -->
+      <div class="shutter-wrapper">
+        <button class="shutter-circle-btn btn-action-sync" onclick="captureOrSave()">
+          <svg class="shutter-icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        </button>
+      </div>
     </section>
   </div>
 </div>
@@ -214,17 +248,16 @@
     </div>
     <div style="padding:10px 16px; background:var(--bg-light); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
       <div style="font-size:0.9rem; font-weight:800;">選択中: <span id="selCount" style="color:var(--primary);">0</span> 枚</div>
-      <button class="tool-btn" id="btnDelete" style="height:36px; padding:0 12px; color:var(--primary); border-color:var(--primary);">
+      <button class="tool-btn" id="btnDelete" style="height:36px; padding:0 12px; color:var(--primary); border-color:var(--primary); background:transparent;">
         🗑 削除
       </button>
     </div>
     <div class="m-body" id="galleryList"></div>
     <div class="m-bottom">
-      <div style="display:flex; gap:8px;">
-        <button class="tool-btn" id="btnSelectAll" style="flex:1; height:54px; font-size:1rem; font-weight:800;">全選択/解除</button>
-        <button class="action-btn" id="btnOpenSend" style="flex:2; height:54px; margin-top:0; background:var(--primary);">
-          ✉ 送信・共有
-        </button>
+      <div style="display:flex; gap:6px;">
+        <button class="tool-btn" id="btnSelectAll" style="flex:1; background:transparent;">全選択</button>
+        <button class="tool-btn" id="btnSaveToDevice" style="flex:1; background:transparent;">📥 保存</button>
+        <button class="action-btn" id="btnOpenSend" style="flex:1.5; margin-top:0; background:var(--primary);">✉ 送信</button>
       </div>
     </div>
   </div>
@@ -243,11 +276,11 @@
         <input id="sendJobNum" class="input-box" type="text" placeholder="例: 現場名など">
       </div>
       <div>
-        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">デフォルト宛先(To) ※自動コピー用</label>
+        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">デフォルト宛先(To)</label>
         <input id="sendEmail" class="input-box" type="email" placeholder="example@mail.com">
       </div>
       <div style="font-size:0.8rem; color:var(--text-sub); line-height:1.5; background:var(--surface); padding:12px; border-radius:12px; border:1px solid var(--border);">
-        💡 送信ボタンを押すと、宛先アドレスがコピーされ、選択されたすべての写真ごとの個別Googleマップジオタグリンクが詳細に本文へ挿入されます。
+        💡 送信ボタンを押すと宛先アドレスがコピーされ、位置情報のMapリンクが本文に挿入されます。メーラーで宛先欄に「ペースト」してください。
       </div>
     </div>
     <div class="m-bottom">
@@ -266,7 +299,7 @@
     <div class="m-body">
       <div style="display:flex; gap:8px; margin-bottom:20px;">
         <input id="newStampText" class="input-box" type="text" placeholder="新しいテキスト">
-        <button class="action-btn" id="btnAddStamp" style="width:80px; height:50px; margin-top:0; background:var(--primary); font-size:1rem;">追加</button>
+        <button class="action-btn" id="btnAddStamp" style="width:80px; height:48px; margin-top:0; background:var(--primary);">追加</button>
       </div>
       <div id="customStampList" style="display:flex; flex-direction:column; gap:8px;"></div>
     </div>
@@ -308,7 +341,7 @@ window.onload = async () => {
 
 function initDB() {
   return new Promise(res => {
-    const req = indexedDB.open("FieldCameraProDB_v4", 1);
+    const req = indexedDB.open("FieldCameraProDB_v5", 1);
     req.onupgradeneeded = e => { if(!e.target.result.objectStoreNames.contains("photos")) e.target.result.createObjectStore("photos", {keyPath:"id"}); };
     req.onsuccess = e => {
       db = e.target.result;
@@ -343,14 +376,13 @@ async function startCamera() {
       cameraWrapper.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
     }
   } catch(e) {
-    console.warn("Camera fallback:", e);
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: true });
       video.srcObject = stream;
       await video.play();
       cameraStarted = true;
     } catch(err) {
-      toast("カメラの起動に失敗しました。権限を確認してください。");
+      toast("カメラの起動に失敗しました。");
     }
   }
 }
@@ -389,6 +421,24 @@ function setupEvents() {
       renderGallery();
       updateUI();
     }
+  };
+  
+  // 保存ボタン
+  document.getElementById("btnSaveToDevice").onclick = async () => {
+    const sel = photos.filter(p => p.selected);
+    if(!sel.length) return toast("写真を選択してください");
+    
+    sel.forEach(p => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(p.blob);
+      a.download = `現場写真_${Date.now()}.jpg`;
+      a.click();
+      
+      p.saved = true;
+      db.transaction("photos","readwrite").objectStore("photos").put(p);
+    });
+    renderGallery();
+    toast("端末に保存しました");
   };
   
   document.getElementById("btnOpenSend").onclick = () => {
@@ -452,11 +502,10 @@ function updateUI() {
   document.getElementById("gCount").textContent = photos.length;
 }
 
-// 撮影ボタン／保存ボタンのテキストとスタイルを一括同期
-function syncActionButtons(html, bg) {
-  document.querySelectorAll(".btn-action-sync").forEach(btn => {
-    btn.innerHTML = html;
-    btn.style.background = bg;
+function syncActionButtons(isEdit) {
+  document.querySelectorAll(".shutter-circle-btn").forEach(btn => {
+    if(isEdit) btn.classList.add("edit-save");
+    else btn.classList.remove("edit-save");
   });
 }
 
@@ -527,7 +576,7 @@ async function handleImport(e) {
     cvs.width = w; cvs.height = h; 
     ctx.drawImage(bmp, 0, 0, w, h);
     const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.9));
-    const item = { id: Date.now() + i, blob, stamp: "未編集", created: new Date().toISOString(), selected: false, coords: deviceCoords };
+    const item = { id: Date.now() + i, blob, stamp: "未編集", created: new Date().toISOString(), selected: false, coords: deviceCoords, saved: false, shared: false };
     photos.unshift(item); 
     await db.transaction("photos","readwrite").objectStore("photos").put(item);
   }
@@ -552,9 +601,10 @@ function openEditor(id) {
   editorImg.style.display = "block";
   document.getElementById("mainActions").style.display = "none";
   document.getElementById("editActions").style.display = "flex";
+  document.getElementById("mainContent").classList.add("edit-mode");
+  document.getElementById("mainHeader").classList.add("edit-mode");
   
-  // 上書き保存に同期変更
-  syncActionButtons(`💾 <span class="action-text">上書き保存</span>`, "var(--text-main)");
+  syncActionButtons(true);
   
   closeM('modalGallery');
   currentStamp = null; activeShape = null; shapePos = null; updateUI();
@@ -571,9 +621,10 @@ function closeEditor() {
   
   document.getElementById("mainActions").style.display = "flex";
   document.getElementById("editActions").style.display = "none";
+  document.getElementById("mainContent").classList.remove("edit-mode");
+  document.getElementById("mainHeader").classList.remove("edit-mode");
   
-  // カメラで記録に同期復帰
-  syncActionButtons(`📸 <span class="action-text">カメラで記録</span>`, "var(--text-main)");
+  syncActionButtons(false);
   
   currentStamp = null; activeShape = null; shapePos = null; updateUI();
 }
@@ -583,10 +634,7 @@ function captureOrSave() {
 }
 
 async function capturePhoto() {
-  if(!video.videoWidth) {
-    toast("カメラ準備中です。少々お待ちください。");
-    return;
-  }
+  if(!video.videoWidth) return toast("カメラ準備中です");
   
   const flash = document.getElementById("flashEffect");
   flash.style.opacity = "1"; 
@@ -609,7 +657,7 @@ async function capturePhoto() {
   
   const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.9));
   const stampName = currentStamp || (activeShape ? "図形追加" : "現場写真");
-  const item = { id: Date.now(), blob, stamp: stampName, created: new Date().toISOString(), selected: true, coords: deviceCoords };
+  const item = { id: Date.now(), blob, stamp: stampName, created: new Date().toISOString(), selected: true, coords: deviceCoords, saved: false, shared: false };
   photos.unshift(item); 
   await db.transaction("photos","readwrite").objectStore("photos").put(item);
   
@@ -702,14 +750,30 @@ function renderGallery() {
   
   photos.forEach(p => {
     const row = document.createElement("div"); row.className = "g-row";
-    const chk = document.createElement("input"); chk.type = "checkbox"; chk.checked = p.selected; chk.style.width="24px"; chk.style.height="24px"; chk.style.accentColor="var(--primary)";
+    
+    const chk = document.createElement("input"); 
+    chk.type = "checkbox"; chk.checked = p.selected; 
+    chk.style.width="24px"; chk.style.height="24px"; chk.style.accentColor="var(--primary)";
     chk.onchange = () => { p.selected = chk.checked; document.getElementById("selCount").textContent = photos.filter(x=>x.selected).length; };
-    const img = document.createElement("img"); img.className = "g-thumb"; img.src = URL.createObjectURL(p.blob);
+    
+    const img = document.createElement("img"); 
+    img.className = "g-thumb"; img.src = URL.createObjectURL(p.blob);
     img.onclick = () => openEditor(p.id);
-    const info = document.createElement("div"); info.className = "g-info";
-    const d = new Date(p.created); 
-    info.innerHTML = `<strong style="font-size:1.1rem; color:var(--text-main);">${p.stamp}</strong><br><small style="color:var(--text-sub);">${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}</small>`;
+    
+    const info = document.createElement("div"); 
+    info.className = "g-info";
+    const d = new Date(p.created);
+    const timeStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
+    
+    let statusHtml = '<div class="status-tags">';
+    if (p.shared) statusHtml += '<span class="status-badge badge-shared">✅ 送信済</span>';
+    if (p.saved) statusHtml += '<span class="status-badge badge-saved">⬇️ 保存済</span>';
+    if (!p.shared && !p.saved) statusHtml += '<span class="status-badge badge-none">⬜︎ 未保存</span>';
+    statusHtml += '</div>';
+
+    info.innerHTML = `<strong style="font-size:1rem; color:var(--text-main);">${p.stamp}</strong><br><small style="color:var(--text-sub);">${timeStr}</small>${statusHtml}`;
     info.onclick = () => openEditor(p.id);
+    
     row.append(chk, img, info); 
     list.appendChild(row);
   });
@@ -722,29 +786,31 @@ async function executeShare() {
   const num = document.getElementById("sendJobNum").value.trim() || "現場報告";
   localStorage.setItem("defEmail", email);
   
-  if(email) { try { await navigator.clipboard.writeText(email); toast("宛先をクリップボードにコピーしました！"); } catch(e) {} }
+  if(email) { try { await navigator.clipboard.writeText(email); toast("宛先をコピーしました！"); } catch(e) {} }
 
   let text = `【案件名・受付番号】\n${num}\n\n`;
-  text += `【添付写真一覧・撮影位置(ジオタグ)】\n`;
   sel.forEach((p, idx) => {
     const d = new Date(p.created);
     const timeStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
     text += `■ 写真 ${idx + 1} (${p.stamp} - ${timeStr})\n`;
-    if(p.coords) {
-      text += `Googleマップ: https://maps.google.com/?q=${p.coords.lat},${p.coords.lng}\n`;
-    } else {
-      text += `Googleマップ: 位置情報なし\n`;
-    }
-    text += `\n`;
+    if(p.coords) text += `Googleマップ: https://maps.google.com/?q=${p.coords.lat},${p.coords.lng}\n\n`;
+    else text += `Googleマップ: 位置情報なし\n\n`;
   });
   
   const files = await Promise.all(sel.map(async (p,i) => new File([await p.blob.arrayBuffer()], `写真_${i+1}.jpg`, {type:"image/jpeg"})));
   if(navigator.canShare && navigator.canShare({files})) {
     setTimeout(async () => {
-      try { await navigator.share({text, files}); } catch(e){}
+      try { 
+        await navigator.share({text, files}); 
+        sel.forEach(p => {
+          p.shared = true;
+          db.transaction("photos","readwrite").objectStore("photos").put(p);
+        });
+        renderGallery();
+      } catch(e){}
     }, email ? 800 : 0);
   } else {
-    toast("共有機能がデバイスまたはブラウザでサポートされていません");
+    toast("共有機能がサポートされていません");
   }
 }
 
@@ -757,7 +823,7 @@ function loadSettings() {
 function renderCustomStamps() {
   const list = document.getElementById("customStampList"); 
   list.innerHTML = "";
-  if(!customStamps.length) list.innerHTML = "<div style='color:var(--text-sub); font-size:0.9rem; font-weight:700;'>登録されているカスタムスタンプはありません</div>";
+  if(!customStamps.length) list.innerHTML = "<div style='color:var(--text-sub); font-size:0.85rem; font-weight:700;'>カスタムスタンプはありません</div>";
   customStamps.forEach((t, i) => {
     const row = document.createElement("div"); row.style.display="flex"; row.style.gap="8px";
     const btn = document.createElement("button"); btn.className = "tool-btn"; btn.style.flex="1"; btn.textContent = t;
@@ -780,7 +846,7 @@ function addCustomStamp() {
 
 function openM(id) { document.getElementById(id).classList.add("show"); }
 function closeM(id) { document.getElementById(id).classList.remove("show"); }
-let tTmr; function toast(msg) { const t=document.getElementById("toast"); t.innerHTML=msg; t.style.display="block"; clearTimeout(tTmr); tTmr=setTimeout(()=>t.style.display="none",3500); }
+let tTmr; function toast(msg) { const t=document.getElementById("toast"); t.innerHTML=msg; t.style.display="block"; clearTimeout(tTmr); tTmr=setTimeout(()=>t.style.display="none",3000); }
 </script>
 </body>
 </html>
