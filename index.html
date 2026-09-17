@@ -7,14 +7,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Field Camera</title>
 
-  <!-- 画像データにGPSと日時を直接埋め込むためのライブラリ -->
+  <!-- 画像データにGPSと日時を直接埋め込む/読み取るためのライブラリ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.min.js"></script>
 
   <script>
     // ========================================================
     // 🔐 【管理者設定】セキュリティ用 PINコード
-    // 漏洩した場合は、ここの数字を新しいものに変更してください。
-    // (変更しても、端末内に保存された写真データは消えません)
     // ========================================================
     const APP_PIN_CODE = "6276";
   </script>
@@ -98,6 +96,14 @@
     .overlay-ui { position: absolute; z-index: 20; pointer-events: none; }
     #stampPreview { display: none; padding: 6px 14px; border-radius: 6px; background: rgba(0,0,0,0.85); border: 2px solid #fff; color: #fff; font-weight: 800; font-size: 1.1rem; letter-spacing: 0.05em; }
     #shapePreview { position: absolute; z-index: 21; display: none; transform-origin: center center; pointer-events: none; }
+    
+    /* ★ 起動時のヒントメッセージ */
+    #startupHint {
+      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px;
+      border-radius: 20px; font-size: 0.9rem; font-weight: 800; z-index: 30;
+      pointer-events: none; opacity: 0; transition: opacity 0.4s ease; white-space: nowrap;
+    }
 
     /* =====================================
        🎛 ツールパネル
@@ -152,9 +158,13 @@
     .input-box { width: 100%; height: 48px; border: 2px solid var(--border); border-radius: 10px; padding: 0 16px; font-size: 1rem; font-weight: 700; outline: none; background: var(--surface); color: var(--text-main); }
     .action-btn { height: 48px; background: var(--text-main); color: #fff; border: none; border-radius: 8px; font-weight: 800; font-size: 1rem; cursor: pointer; }
     
-    /* ★ 下部ボタン (白背景に黒文字) */
+    /* 下部ボタン (白背景に黒文字) */
     .btn-light { background: var(--surface); color: var(--text-main); border: 1.5px solid var(--border); font-weight: 800; border-radius: 8px; cursor: pointer; }
     .btn-light:active { background: var(--bg-light); }
+
+    /* 種別選択ボタン */
+    .type-btn { flex: 1; height: 44px; background: var(--bg-light); border: 1.5px solid var(--border); border-radius: 8px; font-weight: 800; color: var(--text-main); cursor: pointer; }
+    .type-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
     #flashEffect { position: fixed; inset: 0; background: #fff; z-index: 9000; opacity: 0; pointer-events: none; transition: opacity 0.1s; }
     #toast { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(255,255,255,0.95); color: var(--text-main); padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; white-space: nowrap; box-shadow: var(--shadow-md); text-align: center; }
@@ -219,6 +229,9 @@
         <video id="video" autoplay playsinline muted></video>
         <img id="editorImg" src="">
         
+        <!-- ★ 起動時ヒント -->
+        <div id="startupHint">スタンプは撮影後に追加できます。</div>
+
         <div id="stampPreview" class="overlay-ui"></div>
         
         <div id="shapePreview">
@@ -289,16 +302,26 @@
       <button class="icon-btn" id="closeSend"><svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
     </div>
     <div class="m-body" style="display:flex; flex-direction:column; gap:16px;">
+      
+      <!-- 写真種別の選択 -->
+      <div>
+        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">写真の種別（文面に記載）</label>
+        <div style="display:flex; gap:8px;">
+          <button id="btnTypeRepair" class="type-btn active" onclick="setSendType('修理写真')">修理写真</button>
+          <button id="btnTypeReplace" class="type-btn" onclick="setSendType('買い替え現調')">買い替え現調</button>
+        </div>
+      </div>
+
       <div>
         <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">受付番号・件名</label>
-        <input id="sendJobNum" class="input-box" type="text" placeholder="例: 現場名など">
+        <input id="sendJobNum" class="input-box" type="text" placeholder="例: 12345678">
       </div>
       <div>
         <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">デフォルト宛先(To)</label>
         <input id="sendEmail" class="input-box" type="email" placeholder="example@mail.com">
       </div>
       <div style="font-size:0.8rem; color:var(--text-sub); line-height:1.5; background:var(--surface); padding:12px; border-radius:12px; border:1px solid var(--border);">
-        💡 送信ボタンを押すと宛先がコピーされ、送信ファイルは「1MB程度」に自動圧縮されます（アプリ内の元データは最高画質で維持されます）。
+        💡 送信時に宛先がコピーされ、各写真の撮影場所（Googleマップリンク）が本文に自動で挿入されます。<br>ファイルは自動で圧縮されます。
       </div>
     </div>
     <div class="m-bottom">
@@ -346,6 +369,7 @@ let initDist = 0;
 let initScale = 1.0;
 
 let deviceCoords = null;
+let sendSelectedType = "修理写真";
 
 const cvs = document.createElement("canvas");
 const ctx = cvs.getContext("2d");
@@ -358,12 +382,10 @@ const shapePreview = document.getElementById("shapePreview");
    1. PIN認証 & 初期化プロセス
 ======================================= */
 window.onload = () => {
-  // 認証チェック (漏洩してPINが変更された場合、既存のauth_pinと一致しなくなるため再要求される)
   if (localStorage.getItem("authorized_pin") === APP_PIN_CODE) {
     document.getElementById("pinOverlay").style.display = "none";
     initAppWithPermission();
   } else {
-    // ぼかし効果を入れておく
     document.getElementById("app").style.filter = "blur(10px)";
   }
 };
@@ -376,8 +398,7 @@ document.getElementById("btnPinSubmit").onclick = () => {
     document.getElementById("app").style.filter = "blur(0px)";
     setTimeout(() => {
       document.getElementById("pinOverlay").style.display = "none";
-      // ★ ユーザーがタップしたこの瞬間にGPSとカメラの許可を要求する (Safari対策)
-      initAppWithPermission();
+      initAppWithPermission(); 
     }, 300);
   } else {
     document.getElementById("pinError").style.display = "block";
@@ -390,14 +411,20 @@ async function initAppWithPermission() {
   setupEvents();
   updateUI();
   
-  // 許可ダイアログを確実に出す
   startGps();
   await startCamera();
+
+  // ★ 起動時ヒントの表示
+  const hint = document.getElementById("startupHint");
+  hint.style.opacity = "1";
+  setTimeout(() => {
+    hint.style.opacity = "0";
+  }, 2000);
 }
 
 function initDB() {
   return new Promise(res => {
-    const req = indexedDB.open("FieldCameraProDB_v8", 1);
+    const req = indexedDB.open("FieldCameraProDB_v10", 1);
     req.onupgradeneeded = e => { if(!e.target.result.objectStoreNames.contains("photos")) e.target.result.createObjectStore("photos", {keyPath:"id"}); };
     req.onsuccess = e => {
       db = e.target.result;
@@ -410,19 +437,16 @@ function initDB() {
   });
 }
 
-// ★ GPSの確実な取得
 function startGps() {
   if(navigator.geolocation) {
-    // 1回目のgetCurrentPositionで強制的に許可プロンプトを出す
     navigator.geolocation.getCurrentPosition(
       pos => {
         deviceCoords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
-        // 成功したらリアルタイム監視(watch)へ移行
         navigator.geolocation.watchPosition(wPos => {
           deviceCoords = {lat: wPos.coords.latitude, lng: wPos.coords.longitude};
         }, () => {}, {enableHighAccuracy: true});
       },
-      err => { toast("位置情報が拒否されました。設定から許可してください。"); },
+      err => { toast("位置情報が取得できません。設定から許可してください。"); },
       {enableHighAccuracy: true}
     );
   }
@@ -492,12 +516,11 @@ function setupEvents() {
     }
   };
   
-  // ★ 写真アプリへの保存フロー最適化
   document.getElementById("btnSaveToDevice").onclick = async () => {
     const sel = photos.filter(p => p.selected);
     if(!sel.length) return toast("写真を選択してください");
     
-    if(confirm(`${sel.length}枚の画像を端末の写真アプリに保存しますか？\n\n※開いたメニューから「画像を保存」を選んでください。`)) {
+    if(confirm(`${sel.length}枚の画像を端末に保存しますか？\n\n※開いたメニューから「画像を保存」を選んでください。`)) {
       const files = await Promise.all(sel.map(async (p, i) => new File([await p.blob.arrayBuffer()], `現場写真_${Date.now()}_${i}.jpg`, {type:"image/jpeg"})));
       if(navigator.canShare && navigator.canShare({files})) {
         try {
@@ -509,7 +532,6 @@ function setupEvents() {
           renderGallery();
         } catch(e) {}
       } else {
-        // フォールバック（WebShare非対応時）
         sel.forEach(p => {
           const a = document.createElement("a");
           a.href = URL.createObjectURL(p.blob);
@@ -539,6 +561,12 @@ function setupEvents() {
       cameraWrapper.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
     }
   });
+}
+
+function setSendType(type) {
+  sendSelectedType = type;
+  document.getElementById("btnTypeRepair").classList.toggle("active", type === '修理写真');
+  document.getElementById("btnTypeReplace").classList.toggle("active", type === '買い替え現調');
 }
 
 function cycleStampPosition() {
@@ -673,7 +701,7 @@ function setupGestures() {
 }
 
 /* =======================================
-   4. Exif (GPS・日時) 書き込みロジック
+   4. Exif 抽出 & 書き込みロジック
 ======================================= */
 function degToDmsRational(degFloat) {
   const deg = Math.floor(degFloat);
@@ -682,6 +710,34 @@ function degToDmsRational(degFloat) {
   const secFloat = (minFloat - min) * 60;
   const sec = Math.round(secFloat * 100);
   return [[deg, 1], [min, 1], [sec, 100]];
+}
+
+// DataURL から元のExif(GPS・日時)を抽出する関数
+function getExifData(dataUrl) {
+  let coords = null;
+  let createdDate = null;
+  try {
+    const exif = piexif.load(dataUrl);
+    if (exif["GPS"] && exif["GPS"][piexif.GPSIFD.GPSLatitude] && exif["GPS"][piexif.GPSIFD.GPSLongitude]) {
+      const latArr = exif["GPS"][piexif.GPSIFD.GPSLatitude];
+      const latRef = exif["GPS"][piexif.GPSIFD.GPSLatitudeRef] || 'N';
+      const lngArr = exif["GPS"][piexif.GPSIFD.GPSLongitude];
+      const lngRef = exif["GPS"][piexif.GPSIFD.GPSLongitudeRef] || 'E';
+      
+      const lat = (latArr[0][0]/latArr[0][1]) + (latArr[1][0]/latArr[1][1])/60 + (latArr[2][0]/latArr[2][1])/3600;
+      const lng = (lngArr[0][0]/lngArr[0][1]) + (lngArr[1][0]/lngArr[1][1])/60 + (lngArr[2][0]/lngArr[2][1])/3600;
+      coords = { lat: latRef === 'S' ? -lat : lat, lng: lngRef === 'W' ? -lng : lng };
+    }
+    
+    const dt = exif["Exif"][piexif.ExifIFD.DateTimeOriginal] || exif["0th"][piexif.ImageIFD.DateTime];
+    if (dt && typeof dt === 'string') {
+      const parts = dt.split(/[: ]/);
+      if (parts.length === 6) {
+        createdDate = new Date(parts[0], parts[1]-1, parts[2], parts[3], parts[4], parts[5]);
+      }
+    }
+  } catch(e) { console.log("Exif parsing error or no Exif"); }
+  return { coords, createdDate };
 }
 
 async function generateExifBlob(canvas, quality, dateObj, coords) {
@@ -718,6 +774,7 @@ async function generateExifBlob(canvas, quality, dateObj, coords) {
   }
 }
 
+// ★ インポート時に元のExifを抽出して引き継ぐ
 async function handleImport(e) {
   const files = Array.from(e.target.files); 
   if(!files.length) return;
@@ -725,14 +782,35 @@ async function handleImport(e) {
   
   for(let i=0; i<files.length; i++) {
     const file = files[i];
+    
+    // File -> DataURL にして Exif を抽出
+    const dataUrl = await new Promise(r => {
+      const reader = new FileReader();
+      reader.onload = ev => r(ev.target.result);
+      reader.readAsDataURL(file);
+    });
+    
+    const { coords: extractedCoords, createdDate } = getExifData(dataUrl);
+    const finalDate = createdDate || new Date();
+    const finalCoords = extractedCoords || deviceCoords;
+
     const bmp = await createImageBitmap(file);
     let w = bmp.width, h = bmp.height;
     
     cvs.width = w; cvs.height = h; 
     ctx.drawImage(bmp, 0, 0, w, h);
     
-    const blob = await generateExifBlob(cvs, 1.0, new Date(), deviceCoords);
-    const item = { id: Date.now() + i, blob, stamp: "未編集", created: new Date().toISOString(), selected: false, coords: deviceCoords, saved: false, shared: false };
+    const blob = await generateExifBlob(cvs, 1.0, finalDate, finalCoords);
+    const item = { 
+      id: Date.now() + i, 
+      blob, 
+      stamp: "未編集", 
+      created: finalDate.toISOString(), 
+      selected: false, 
+      coords: finalCoords, 
+      saved: false, 
+      shared: false 
+    };
     photos.unshift(item); 
     await db.transaction("photos","readwrite").objectStore("photos").put(item);
   }
@@ -742,6 +820,9 @@ async function handleImport(e) {
   openM('modalGallery');
 }
 
+/* =======================================
+   5. エディタモード切替
+======================================= */
 function openEditor(id) {
   const p = photos.find(x => x.id === id); 
   if(!p) return;
@@ -807,6 +888,13 @@ async function capturePhoto() {
   }
   
   const captureDate = new Date();
+  
+  if (!deviceCoords && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      deviceCoords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+    }, () => {}, {timeout: 1000});
+  }
+
   const blob = await generateExifBlob(cvs, 1.0, captureDate, deviceCoords);
   const stampName = currentStamp || (activeShape ? "図形追加" : "現場写真");
   const item = { id: captureDate.getTime(), blob, stamp: stampName, created: captureDate.toISOString(), selected: true, coords: deviceCoords, saved: false, shared: false };
@@ -830,23 +918,20 @@ async function saveEdit() {
   }
 
   const editDate = new Date();
-  const blob = await generateExifBlob(cvs, 0.95, editDate, currentCoords || deviceCoords);
+  const p = photos.find(x => x.id === editTargetId);
+  
+  // 編集時も元の写真のGPSがあれば引き継ぐ
+  const blob = await generateExifBlob(cvs, 0.95, editDate, p.coords || deviceCoords);
   const stampName = currentStamp || (activeShape ? "図形追加" : "編集済");
   
-  const item = photos.find(x => x.id === editTargetId);
-  item.blob = blob; 
-  item.stamp = stampName;
-  await db.transaction("photos","readwrite").objectStore("photos").put(item);
+  p.blob = blob; 
+  p.stamp = stampName;
+  await db.transaction("photos","readwrite").objectStore("photos").put(p);
   
   toast("上書き保存しました"); 
   closeEditor(); 
   renderGallery(); 
   openM('modalGallery');
-}
-
-function stageToSource(sx, sy, srcW) {
-  const scale = cameraWrapper.clientWidth / srcW;
-  return { x: sx / scale, y: sy / scale };
 }
 
 function drawStamp(ctx, txt, w, h) {
@@ -950,6 +1035,7 @@ async function compressForEmail(blob) {
   const cx = c.getContext("2d");
   cx.drawImage(bmp, 0, 0, w, h);
   
+  // 送信時も圧縮した上で元のExifを引き継ぐ
   return await generateExifBlob(c, 0.8, new Date(), deviceCoords);
 }
 
@@ -960,16 +1046,23 @@ async function executeShare() {
   toast("圧縮の準備をしています...");
   
   const email = document.getElementById("sendEmail").value.trim();
-  const num = document.getElementById("sendJobNum").value.trim() || "現場報告";
+  const num = document.getElementById("sendJobNum").value.trim() || "未入力";
   localStorage.setItem("defEmail", email);
   
   if(email) { try { await navigator.clipboard.writeText(email); } catch(e) {} }
 
-  let text = `【案件名・受付番号】\n${num}\n\n`;
+  let text = `【写真種別】\n${sendSelectedType}\n\n`;
+  text += `【案件名・受付番号】\n${num}\n\n`;
+  
   sel.forEach((p, idx) => {
     const d = new Date(p.created);
     const timeStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
     text += `■ 写真 ${idx + 1} (${p.stamp} - ${timeStr})\n`;
+    if(p.coords) {
+      text += `Googleマップ: https://maps.google.com/?q=${p.coords.lat},${p.coords.lng}\n\n`;
+    } else {
+      text += `Googleマップ: 位置情報なし（GPS未取得時に撮影）\n\n`;
+    }
   });
   
   const files = await Promise.all(sel.map(async (p, i) => {
