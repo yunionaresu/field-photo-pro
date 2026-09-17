@@ -7,6 +7,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Field Camera</title>
 
+  <!-- ★ 画像データにGPSと日時を埋め込むためのライブラリ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.min.js"></script>
+
   <style>
     :root {
       --primary: #E11D48;
@@ -26,7 +29,7 @@
     
     #app { width: 100%; height: 100dvh; display: flex; flex-direction: column; }
     
-    /* 🪟 Header (さらにスリム化) */
+    /* 🪟 Header */
     .header { 
       padding-top: env(safe-area-inset-top); 
       height: calc(48px + env(safe-area-inset-top)); 
@@ -47,7 +50,7 @@
     #mainContent { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; background: var(--bg-dark); transition: background 0.2s; }
     #mainContent.edit-mode { background: var(--bg-light); }
     
-    /* 🔴 丸型シャッターボタン (スリム化) */
+    /* 🔴 丸型シャッターボタン */
     .shutter-circle-btn {
       width: 56px; height: 56px; border-radius: 50%;
       background-color: #fff; border: 3px solid #cbd5e1;
@@ -68,7 +71,7 @@
     .alt-shutter-container { padding: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent; }
     .shutter-wrapper { display: flex; justify-content: center; align-items: center; padding: 2px 0; flex-shrink: 0; }
 
-    /* 🔲 カメラ・ファインダー領域 (パディング削減で面積最大化) */
+    /* 🔲 カメラ・ファインダー領域 */
     #cameraArea { 
       flex: 1; display: flex; justify-content: center; align-items: center;
       padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); 
@@ -92,34 +95,27 @@
     #shapePreview { position: absolute; z-index: 21; display: none; transform-origin: center center; pointer-events: none; }
 
     /* =====================================
-       🎛 ツールパネル (スリム化)
+       🎛 ツールパネル
        ===================================== */
     #toolsPanel { background: transparent; padding: 6px max(12px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; z-index: 25; }
     #mainContent.edit-mode #toolsPanel { background: var(--surface); border-radius: 20px 20px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
 
     .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
     
-    /* ツールボタン (ダーク/ライト対応) */
     .tool-btn { height: 40px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.1s; }
     .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
     
     #mainContent.edit-mode .tool-btn { background: var(--bg-light); border-color: var(--border); color: var(--text-main); }
     #mainContent.edit-mode .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
-    /* =====================================
-       📱 Landscape Mode (横画面)
-       ===================================== */
+    /* 横画面 */
     @media (orientation: landscape) {
       #mainContent { flex-direction: row; }
-      
       .alt-shutter-container { width: 80px; border-bottom: none; display: flex; align-items: center; justify-content: center; }
       #mainContent.edit-mode .alt-shutter-container { border-right: 1px solid var(--border); background: var(--surface); }
-
       #cameraArea { padding: max(4px, env(safe-area-inset-top)) 8px max(4px, env(safe-area-inset-bottom)) 8px; }
-      
       #toolsPanel { width: 250px; justify-content: flex-start; }
       #mainContent.edit-mode #toolsPanel { border-radius: 24px 0 0 24px; border-left: 1px solid var(--border); }
-      
       .tools-grid { grid-template-columns: repeat(2, 1fr); }
       .shutter-wrapper { margin-top: auto; margin-bottom: 8px; }
     }
@@ -151,6 +147,10 @@
     .input-box { width: 100%; height: 48px; border: 2px solid var(--border); border-radius: 10px; padding: 0 16px; font-size: 1rem; font-weight: 700; outline: none; background: var(--surface); color: var(--text-main); }
     .action-btn { height: 48px; background: var(--text-main); color: #fff; border: none; border-radius: 8px; font-weight: 800; font-size: 1rem; cursor: pointer; }
     
+    /* ★ 下部ボタンの視認性改善 (白背景に黒文字) */
+    .btn-light { background: var(--surface); color: var(--text-main); border: 1.5px solid var(--border); font-weight: 800; border-radius: 8px; cursor: pointer; }
+    .btn-light:active { background: var(--bg-light); }
+
     #flashEffect { position: fixed; inset: 0; background: #fff; z-index: 9000; opacity: 0; pointer-events: none; transition: opacity 0.1s; }
     #toast { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(255,255,255,0.95); color: var(--text-main); padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; white-space: nowrap; box-shadow: var(--shadow-md); text-align: center; }
   </style>
@@ -199,7 +199,6 @@
         
         <div id="stampPreview" class="overlay-ui"></div>
         
-        <!-- Shape Previews -->
         <div id="shapePreview">
           <svg id="svgArrow" width="100" height="100" viewBox="-50 -50 100 100" style="display:none; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
             <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#fff" stroke-width="6" stroke-linejoin="round" />
@@ -245,15 +244,15 @@
     </div>
     <div style="padding:10px 16px; background:var(--bg-light); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
       <div style="font-size:0.9rem; font-weight:800;">選択中: <span id="selCount" style="color:var(--primary);">0</span> 枚</div>
-      <button class="tool-btn" id="btnDelete" style="height:36px; padding:0 12px; color:var(--primary); border-color:var(--primary); background:transparent;">
+      <button class="btn-light" id="btnDelete" style="height:36px; padding:0 12px; color:var(--primary); border-color:#fca5a5; background:#fff1f2;">
         🗑 削除
       </button>
     </div>
     <div class="m-body" id="galleryList"></div>
     <div class="m-bottom">
       <div style="display:flex; gap:6px;">
-        <button class="tool-btn" id="btnSelectAll" style="flex:1; background:transparent;">全選択</button>
-        <button class="tool-btn" id="btnSaveToDevice" style="flex:1; background:transparent;">📥 保存</button>
+        <button class="btn-light" id="btnSelectAll" style="flex:1;">全選択</button>
+        <button class="btn-light" id="btnSaveToDevice" style="flex:1;">📥 保存</button>
         <button class="action-btn" id="btnOpenSend" style="flex:1.5; margin-top:0; background:var(--primary);">✉ 送信</button>
       </div>
     </div>
@@ -318,8 +317,8 @@ let shapePos = null;
 let shapeScale = 1.0;
 let shapeAngle = 0; 
 
-// ジェスチャー用の状態管理
-let interactionMode = null; // 'move', 'rotate', 'scale', 'pinch'
+// ジェスチャー状態管理
+let interactionMode = null; 
 let initAngle = 0;
 let initialShapeAngle = 0;
 let initDist = 0;
@@ -345,7 +344,7 @@ window.onload = async () => {
 
 function initDB() {
   return new Promise(res => {
-    const req = indexedDB.open("FieldCameraProDB_v6", 1);
+    const req = indexedDB.open("FieldCameraProDB_v7", 1);
     req.onupgradeneeded = e => { if(!e.target.result.objectStoreNames.contains("photos")) e.target.result.createObjectStore("photos", {keyPath:"id"}); };
     req.onsuccess = e => {
       db = e.target.result;
@@ -430,21 +429,37 @@ function setupEvents() {
     }
   };
   
+  // ★ 写真アプリへの保存 (共有メニュー経由)
   document.getElementById("btnSaveToDevice").onclick = async () => {
     const sel = photos.filter(p => p.selected);
     if(!sel.length) return toast("写真を選択してください");
     
-    sel.forEach(p => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(p.blob);
-      a.download = `現場写真_${Date.now()}.jpg`;
-      a.click();
-      
-      p.saved = true;
-      db.transaction("photos","readwrite").objectStore("photos").put(p);
-    });
-    renderGallery();
-    toast("端末に保存しました");
+    if(confirm(`${sel.length}枚の画像を端末に保存しますか？\n\n※iPhoneの仕様により、開いた共有メニューから「画像を保存」を選択してください。`)) {
+      const files = await Promise.all(sel.map(async (p, i) => new File([await p.blob.arrayBuffer()], `現場写真_${Date.now()}_${i}.jpg`, {type:"image/jpeg"})));
+      if(navigator.canShare && navigator.canShare({files})) {
+        try {
+          await navigator.share({files});
+          sel.forEach(p => {
+            p.saved = true;
+            db.transaction("photos","readwrite").objectStore("photos").put(p);
+          });
+          renderGallery();
+          toast("保存メニューを完了しました");
+        } catch(e) {}
+      } else {
+        // フォールバック（WebShare非対応時）
+        sel.forEach(p => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(p.blob);
+          a.download = `現場写真_${Date.now()}.jpg`;
+          a.click();
+          p.saved = true;
+          db.transaction("photos","readwrite").objectStore("photos").put(p);
+        });
+        renderGallery();
+        toast("ダウンロードを開始しました");
+      }
+    }
   };
   
   document.getElementById("btnOpenSend").onclick = () => {
@@ -539,13 +554,11 @@ function setupGestures() {
         interactionMode = 'move';
       } else {
         const dist = Math.hypot(pt.x - shapePos.x, pt.y - shapePos.y);
-        const hitRadius = 50 * shapeScale; // タップ判定の半径
+        const hitRadius = 50 * shapeScale;
 
         if (dist <= Math.max(40, hitRadius * 0.8)) {
-          // 中心付近をタップ -> 移動モード
           interactionMode = 'move';
         } else {
-          // 外側をタップ -> 回転または拡縮モード
           if (activeShape === 'arrow') {
             interactionMode = 'rotate';
             initAngle = Math.atan2(pt.y - shapePos.y, pt.x - shapePos.x);
@@ -583,7 +596,6 @@ function setupGestures() {
         shapeAngle = initialShapeAngle + (currentAngle - initAngle);
       } else if (interactionMode === 'scale' && activeShape === 'circle') {
         const currentDist = Math.hypot(pt.x - shapePos.x, pt.y - shapePos.y);
-        // 中心に近づけると縮小、離すと拡大
         shapeScale = Math.max(0.2, Math.min(initScale * (currentDist / initDist), 5.0));
       }
     } else if (ptrs.length === 2 && interactionMode === 'pinch' && activeShape === 'arrow') {
@@ -618,8 +630,8 @@ async function handleImport(e) {
     cvs.width = w; cvs.height = h; 
     ctx.drawImage(bmp, 0, 0, w, h);
     
-    // アプリ内DBには圧縮率の低い(1.0)最高画質で保存する
-    const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 1.0));
+    // ★EXIFの付与
+    const blob = await generateExifBlob(cvs, 1.0, new Date(), deviceCoords);
     const item = { id: Date.now() + i, blob, stamp: "未編集", created: new Date().toISOString(), selected: false, coords: deviceCoords, saved: false, shared: false };
     photos.unshift(item); 
     await db.transaction("photos","readwrite").objectStore("photos").put(item);
@@ -675,10 +687,57 @@ function closeEditor() {
 }
 
 /* =======================================
-   6. 撮影・保存処理 (常に最高画質)
+   6. 撮影・保存処理 (常に最高画質 ＋ Exif付与)
 ======================================= */
 function captureOrSave() {
   if (editMode) saveEdit(); else capturePhoto();
+}
+
+// 緯度経度を Exif 用の Rational 配列に変換するヘルパー
+function degToDmsRational(degFloat) {
+  const deg = Math.floor(degFloat);
+  const minFloat = (degFloat - deg) * 60;
+  const min = Math.floor(minFloat);
+  const secFloat = (minFloat - min) * 60;
+  const sec = Math.round(secFloat * 100);
+  return [[deg, 1], [min, 1], [sec, 100]];
+}
+
+// Canvas から Exif(日時・GPS)入り Blob を生成する関数
+async function generateExifBlob(canvas, quality, dateObj, coords) {
+  const dataUrl = canvas.toDataURL("image/jpeg", quality);
+  if (typeof piexif === 'undefined') return new Promise(r => canvas.toBlob(r, "image/jpeg", quality));
+
+  try {
+    const pad = n => String(n).padStart(2, "0");
+    const dateStr = `${dateObj.getFullYear()}:${pad(dateObj.getMonth()+1)}:${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
+    
+    let exifObj = { "0th": {}, "Exif": {}, "GPS": {} };
+    exifObj["Exif"][piexif.ExifIFD.DateTimeOriginal] = dateStr;
+    exifObj["0th"][piexif.ImageIFD.DateTime] = dateStr;
+
+    if (coords) {
+      exifObj["GPS"][piexif.GPSIFD.GPSLatitudeRef] = coords.lat < 0 ? 'S' : 'N';
+      exifObj["GPS"][piexif.GPSIFD.GPSLatitude] = degToDmsRational(Math.abs(coords.lat));
+      exifObj["GPS"][piexif.GPSIFD.GPSLongitudeRef] = coords.lng < 0 ? 'W' : 'E';
+      exifObj["GPS"][piexif.GPSIFD.GPSLongitude] = degToDmsRational(Math.abs(coords.lng));
+    }
+    
+    const exifStr = piexif.dump(exifObj);
+    const insertedStr = piexif.insert(exifStr, dataUrl);
+    
+    // Base64 to Blob
+    const arr = insertedStr.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while(n--) { u8arr[n] = bstr.charCodeAt(n); }
+    return new Blob([u8arr], {type: mime});
+  } catch(e) {
+    console.warn("Exif insertion failed", e);
+    return new Promise(r => canvas.toBlob(r, "image/jpeg", quality));
+  }
 }
 
 async function capturePhoto() {
@@ -688,9 +747,7 @@ async function capturePhoto() {
   flash.style.opacity = "1"; 
   setTimeout(() => flash.style.opacity = "0", 120);
 
-  // リサイズせず、カメラのフル解像度(videoWidth)をそのまま使用
   let w = video.videoWidth, h = video.videoHeight;
-  
   cvs.width = w; cvs.height = h; 
   const sc = w / video.videoWidth;
   ctx.drawImage(video, 0, 0, w, h);
@@ -702,10 +759,10 @@ async function capturePhoto() {
     drawShape(ctx, pt.x * sc, pt.y * sc, w, h);
   }
   
-  // 品質 1.0 の最高画質で保存
-  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 1.0));
+  const captureDate = new Date();
+  const blob = await generateExifBlob(cvs, 1.0, captureDate, deviceCoords);
   const stampName = currentStamp || (activeShape ? "図形追加" : "現場写真");
-  const item = { id: Date.now(), blob, stamp: stampName, created: new Date().toISOString(), selected: true, coords: deviceCoords, saved: false, shared: false };
+  const item = { id: captureDate.getTime(), blob, stamp: stampName, created: captureDate.toISOString(), selected: true, coords: deviceCoords, saved: false, shared: false };
   photos.unshift(item); 
   await db.transaction("photos","readwrite").objectStore("photos").put(item);
   
@@ -725,8 +782,8 @@ async function saveEdit() {
     drawShape(ctx, pt.x, pt.y, srcW, srcH);
   }
 
-  // 品質 0.95 以上の高画質で上書き
-  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.95));
+  const editDate = new Date();
+  const blob = await generateExifBlob(cvs, 0.95, editDate, currentCoords);
   const stampName = currentStamp || (activeShape ? "図形追加" : "編集済");
   
   const item = photos.find(x => x.id === editTargetId);
@@ -738,6 +795,11 @@ async function saveEdit() {
   closeEditor(); 
   renderGallery(); 
   openM('modalGallery');
+}
+
+function stageToSource(sx, sy, srcW) {
+  const scale = cameraWrapper.clientWidth / srcW;
+  return { x: sx / scale, y: sy / scale };
 }
 
 function drawStamp(ctx, txt, w, h) {
@@ -812,7 +874,7 @@ function renderGallery() {
     const info = document.createElement("div"); 
     info.className = "g-info";
     const d = new Date(p.created);
-    const timeStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
+    const timeStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
     
     let statusHtml = '<div class="status-tags">';
     if (p.shared) statusHtml += '<span class="status-badge badge-shared">✅ 送信済</span>';
@@ -835,7 +897,6 @@ async function compressForEmail(blob) {
   const bmp = await createImageBitmap(blob);
   let w = bmp.width, h = bmp.height;
   
-  // 1MB以下に抑えるためのリサイズ (長辺1440px程度に)
   const maxDim = 1440;
   if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; } 
   else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
@@ -845,8 +906,8 @@ async function compressForEmail(blob) {
   const cx = c.getContext("2d");
   cx.drawImage(bmp, 0, 0, w, h);
   
-  // 品質 0.8 で圧縮出力
-  return new Promise(r => c.toBlob(r, "image/jpeg", 0.8));
+  // 送信用圧縮時もExifを維持する
+  return await generateExifBlob(c, 0.8, new Date(), deviceCoords);
 }
 
 async function executeShare() {
@@ -864,23 +925,19 @@ async function executeShare() {
   let text = `【案件名・受付番号】\n${num}\n\n`;
   sel.forEach((p, idx) => {
     const d = new Date(p.created);
-    const timeStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
+    const timeStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
     text += `■ 写真 ${idx + 1} (${p.stamp} - ${timeStr})\n`;
-    if(p.coords) text += `Googleマップ: https://maps.google.com/?q=${p.coords.lat},${p.coords.lng}\n\n`;
-    else text += `Googleマップ: 位置情報なし\n\n`;
   });
   
-  // 選択されたすべての画像を圧縮してFileオブジェクトに変換
   const files = await Promise.all(sel.map(async (p, i) => {
     const compressedBlob = await compressForEmail(p.blob);
-    return new File([await compressedBlob.arrayBuffer()], `写真_${i+1}.jpg`, {type:"image/jpeg"});
+    return new File([await compressedBlob.arrayBuffer()], `現場写真_${Date.now()}_${i+1}.jpg`, {type:"image/jpeg"});
   }));
   
   if(navigator.canShare && navigator.canShare({files})) {
     setTimeout(async () => {
       try { 
         await navigator.share({text, files}); 
-        // 送信成功フラグを立てる
         sel.forEach(p => {
           p.shared = true;
           db.transaction("photos","readwrite").objectStore("photos").put(p);
