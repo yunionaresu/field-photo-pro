@@ -10,14 +10,12 @@
   <style>
     :root {
       --primary: #E11D48;
-      --primary-dark: #BE123C;
       --bg-dark: #000000;
       --bg-light: #F1F5F9;
       --surface: #FFFFFF;
       --text-main: #0F172A;
       --text-sub: #64748B;
       --border: #E2E8F0;
-      --radius-md: 12px;
       --shadow-md: 0 12px 32px rgba(0,0,0,0.15);
     }
     
@@ -28,10 +26,10 @@
     
     #app { width: 100%; height: 100dvh; display: flex; flex-direction: column; }
     
-    /* 🪟 Header */
+    /* 🪟 Header (さらにスリム化) */
     .header { 
       padding-top: env(safe-area-inset-top); 
-      height: calc(54px + env(safe-area-inset-top)); 
+      height: calc(48px + env(safe-area-inset-top)); 
       padding-left: max(12px, env(safe-area-inset-left));
       padding-right: max(12px, env(safe-area-inset-right));
       display: flex; align-items: center; justify-content: space-between; z-index: 10; flex-shrink: 0; background: var(--bg-dark); 
@@ -39,7 +37,7 @@
     .header.edit-mode { background: var(--surface); color: var(--text-main); border-bottom: 1px solid var(--border); }
     
     .header-actions { display: flex; gap: 8px; align-items: center; width: 100%; justify-content: space-between; }
-    .header-btn { height: 36px; padding: 0 10px; border-radius: 8px; background: rgba(255,255,255,0.2); font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #fff; border: none; white-space: nowrap; }
+    .header-btn { height: 32px; padding: 0 10px; border-radius: 8px; background: rgba(255,255,255,0.2); font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #fff; border: none; white-space: nowrap; }
     .header-btn.primary { background: var(--primary); }
     .header.edit-mode .header-btn { background: var(--bg-light); color: var(--text-main); border: 1px solid var(--border); }
     
@@ -49,16 +47,16 @@
     #mainContent { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; background: var(--bg-dark); transition: background 0.2s; }
     #mainContent.edit-mode { background: var(--bg-light); }
     
-    /* 🔴 丸型シャッターボタン (純正カメラ風) */
+    /* 🔴 丸型シャッターボタン (スリム化) */
     .shutter-circle-btn {
-      width: 64px; height: 64px; border-radius: 50%;
+      width: 56px; height: 56px; border-radius: 50%;
       background-color: #fff; border: 3px solid #cbd5e1;
       box-shadow: 0 0 0 4px var(--bg-dark) inset, 0 4px 12px rgba(0,0,0,0.3);
       cursor: pointer; display: flex; align-items: center; justify-content: center;
       transition: all 0.15s ease; padding: 0;
     }
     .shutter-circle-btn:active { transform: scale(0.92); }
-    .shutter-icon { display: none; width: 28px; height: 28px; color: #fff; }
+    .shutter-icon { display: none; width: 24px; height: 24px; color: #fff; }
     
     /* 編集モード時のシャッターボタン (上書き保存に変化) */
     .shutter-circle-btn.edit-save {
@@ -67,13 +65,13 @@
     .shutter-circle-btn.edit-save .shutter-icon { display: block; }
 
     /* シャッターコンテナ */
-    .alt-shutter-container { padding: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent; }
-    .shutter-wrapper { display: flex; justify-content: center; align-items: center; padding: 4px 0; flex-shrink: 0; }
+    .alt-shutter-container { padding: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent; }
+    .shutter-wrapper { display: flex; justify-content: center; align-items: center; padding: 2px 0; flex-shrink: 0; }
 
-    /* 🔲 カメラ・ファインダー領域 */
+    /* 🔲 カメラ・ファインダー領域 (パディング削減で面積最大化) */
     #cameraArea { 
       flex: 1; display: flex; justify-content: center; align-items: center;
-      padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); 
+      padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); 
       position: relative; min-height: 0; min-width: 0; overflow: hidden;
     }
     
@@ -94,15 +92,15 @@
     #shapePreview { position: absolute; z-index: 21; display: none; transform-origin: center center; pointer-events: none; }
 
     /* =====================================
-       🎛 ツールパネル
+       🎛 ツールパネル (スリム化)
        ===================================== */
-    #toolsPanel { background: transparent; padding: 8px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; z-index: 25; }
+    #toolsPanel { background: transparent; padding: 6px max(12px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; z-index: 25; }
     #mainContent.edit-mode #toolsPanel { background: var(--surface); border-radius: 20px 20px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
 
-    .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
     
     /* ツールボタン (ダーク/ライト対応) */
-    .tool-btn { height: 42px; background: #1e293b; border: 1.5px solid #334155; border-radius: 8px; color: #f8fafc; font-weight: 800; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.1s; }
+    .tool-btn { height: 40px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.1s; }
     .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
     
     #mainContent.edit-mode .tool-btn { background: var(--bg-light); border-color: var(--border); color: var(--text-main); }
@@ -114,12 +112,12 @@
     @media (orientation: landscape) {
       #mainContent { flex-direction: row; }
       
-      .alt-shutter-container { width: 100px; border-bottom: none; display: flex; align-items: center; justify-content: center; }
+      .alt-shutter-container { width: 80px; border-bottom: none; display: flex; align-items: center; justify-content: center; }
       #mainContent.edit-mode .alt-shutter-container { border-right: 1px solid var(--border); background: var(--surface); }
 
-      #cameraArea { padding: max(8px, env(safe-area-inset-top)) 16px max(8px, env(safe-area-inset-bottom)) 16px; }
+      #cameraArea { padding: max(4px, env(safe-area-inset-top)) 8px max(4px, env(safe-area-inset-bottom)) 8px; }
       
-      #toolsPanel { width: 280px; justify-content: flex-start; }
+      #toolsPanel { width: 250px; justify-content: flex-start; }
       #mainContent.edit-mode #toolsPanel { border-radius: 24px 0 0 24px; border-left: 1px solid var(--border); }
       
       .tools-grid { grid-template-columns: repeat(2, 1fr); }
@@ -144,7 +142,6 @@
     .g-thumb { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; cursor: pointer; border: 1px solid var(--border); }
     .g-info { flex: 1; cursor: pointer; }
     
-    /* 🏷 ステータスバッジ */
     .status-tags { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
     .status-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; white-space: nowrap; }
     .badge-saved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
@@ -155,7 +152,7 @@
     .action-btn { height: 48px; background: var(--text-main); color: #fff; border: none; border-radius: 8px; font-weight: 800; font-size: 1rem; cursor: pointer; }
     
     #flashEffect { position: fixed; inset: 0; background: #fff; z-index: 9000; opacity: 0; pointer-events: none; transition: opacity 0.1s; }
-    #toast { position: fixed; top: calc(70px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(255,255,255,0.95); color: var(--text-main); padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; white-space: nowrap; box-shadow: var(--shadow-md); text-align: center; }
+    #toast { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(255,255,255,0.95); color: var(--text-main); padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; white-space: nowrap; box-shadow: var(--shadow-md); text-align: center; }
   </style>
 </head>
 <body>
@@ -187,7 +184,7 @@
   <!-- 📷 Main Content Area -->
   <div id="mainContent">
     
-    <!-- 🎛 反対側シャッター (縦なら上、横なら左) -->
+    <!-- 🎛 反対側シャッター -->
     <div class="alt-shutter-container">
       <button class="shutter-circle-btn btn-action-sync" onclick="captureOrSave()">
         <svg class="shutter-icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
@@ -280,11 +277,11 @@
         <input id="sendEmail" class="input-box" type="email" placeholder="example@mail.com">
       </div>
       <div style="font-size:0.8rem; color:var(--text-sub); line-height:1.5; background:var(--surface); padding:12px; border-radius:12px; border:1px solid var(--border);">
-        💡 送信ボタンを押すと宛先アドレスがコピーされ、位置情報のMapリンクが本文に挿入されます。メーラーで宛先欄に「ペースト」してください。
+        💡 送信ボタンを押すと宛先がコピーされ、送信ファイルは「1MB程度」に自動圧縮されます（アプリ内の元データは最高画質で維持されます）。
       </div>
     </div>
     <div class="m-bottom">
-      <button class="action-btn" id="btnExecSend" style="background:var(--primary);">🚀 共有メニューを開く</button>
+      <button class="action-btn" id="btnExecSend" style="background:var(--primary);">🚀 圧縮して共有メニューを開く</button>
     </div>
   </div>
 </section>
@@ -321,6 +318,13 @@ let shapePos = null;
 let shapeScale = 1.0;
 let shapeAngle = 0; 
 
+// ジェスチャー用の状態管理
+let interactionMode = null; // 'move', 'rotate', 'scale', 'pinch'
+let initAngle = 0;
+let initialShapeAngle = 0;
+let initDist = 0;
+let initScale = 1.0;
+
 let deviceCoords = null;
 
 const cvs = document.createElement("canvas");
@@ -341,7 +345,7 @@ window.onload = async () => {
 
 function initDB() {
   return new Promise(res => {
-    const req = indexedDB.open("FieldCameraProDB_v5", 1);
+    const req = indexedDB.open("FieldCameraProDB_v6", 1);
     req.onupgradeneeded = e => { if(!e.target.result.objectStoreNames.contains("photos")) e.target.result.createObjectStore("photos", {keyPath:"id"}); };
     req.onsuccess = e => {
       db = e.target.result;
@@ -395,7 +399,10 @@ function setupEvents() {
   
   document.querySelectorAll("[data-shape]").forEach(b => b.onclick = () => {
     activeShape = activeShape === b.dataset.shape ? null : b.dataset.shape;
-    if(activeShape && !shapePos) toast("画面をタップして配置してください");
+    if(activeShape) {
+      if(!shapePos) toast("画面をタップして配置してください");
+      shapeAngle = 0; shapeScale = 1.0;
+    }
     if(!activeShape) shapePos = null;
     updateUI();
   });
@@ -423,7 +430,6 @@ function setupEvents() {
     }
   };
   
-  // 保存ボタン
   document.getElementById("btnSaveToDevice").onclick = async () => {
     const sel = photos.filter(p => p.selected);
     if(!sel.length) return toast("写真を選択してください");
@@ -513,24 +519,48 @@ function showFullScreenHelp() {
   toast("Safari下部の [共有ボタン] から<br>『ホーム画面に追加』を押すと<br>URLバーが消えて全画面アプリになります");
 }
 
+/* =======================================
+   3. 直感的な図形ジェスチャーの実装
+======================================= */
 function setupGestures() {
-  let ptrs = []; let initP = null;
+  let ptrs = []; 
+  
   cameraWrapper.addEventListener('pointerdown', e => {
     if(!activeShape) return;
     e.preventDefault(); 
     ptrs.push(e);
+    
+    const r = cameraWrapper.getBoundingClientRect();
+    const pt = { x: e.clientX - r.left, y: e.clientY - r.top };
+
     if(ptrs.length === 1) {
-      const r = cameraWrapper.getBoundingClientRect();
-      const pt = { x: e.clientX - r.left, y: e.clientY - r.top };
-      if(!shapePos || Math.hypot(pt.x - shapePos.x, pt.y - shapePos.y) > 100) {
+      if(!shapePos) {
         shapePos = pt;
+        interactionMode = 'move';
+      } else {
+        const dist = Math.hypot(pt.x - shapePos.x, pt.y - shapePos.y);
+        const hitRadius = 50 * shapeScale; // タップ判定の半径
+
+        if (dist <= Math.max(40, hitRadius * 0.8)) {
+          // 中心付近をタップ -> 移動モード
+          interactionMode = 'move';
+        } else {
+          // 外側をタップ -> 回転または拡縮モード
+          if (activeShape === 'arrow') {
+            interactionMode = 'rotate';
+            initAngle = Math.atan2(pt.y - shapePos.y, pt.x - shapePos.x);
+            initialShapeAngle = shapeAngle;
+          } else if (activeShape === 'circle') {
+            interactionMode = 'scale';
+            initDist = dist;
+            initScale = shapeScale;
+          }
+        }
       }
-    } else if (ptrs.length === 2) {
-      initP = {
-        d: Math.hypot(ptrs[0].clientX - ptrs[1].clientX, ptrs[0].clientY - ptrs[1].clientY),
-        a: Math.atan2(ptrs[1].clientY - ptrs[0].clientY, ptrs[1].clientX - ptrs[0].clientX),
-        s: shapeScale, ang: shapeAngle
-      };
+    } else if (ptrs.length === 2 && activeShape === 'arrow') {
+      interactionMode = 'pinch';
+      initDist = Math.hypot(ptrs[0].clientX - ptrs[1].clientX, ptrs[0].clientY - ptrs[1].clientY);
+      initScale = shapeScale;
     }
     updateUI();
   });
@@ -541,26 +571,40 @@ function setupGestures() {
     const idx = ptrs.findIndex(p => p.pointerId === e.pointerId); 
     if(idx >= 0) ptrs[idx] = e;
     
+    const r = cameraWrapper.getBoundingClientRect();
+
     if(ptrs.length === 1) { 
-      const r = cameraWrapper.getBoundingClientRect();
-      shapePos = { x: Math.max(0, Math.min(r.width, e.clientX - r.left)), y: Math.max(0, Math.min(r.height, e.clientY - r.top)) }; 
-    } else if (ptrs.length === 2 && initP) {
-      const d = Math.hypot(ptrs[0].clientX - ptrs[1].clientX, ptrs[0].clientY - ptrs[1].clientY);
-      const a = Math.atan2(ptrs[1].clientY - ptrs[0].clientY, ptrs[1].clientX - ptrs[0].clientX);
-      shapeScale = Math.max(0.4, Math.min(initP.s * (d / initP.d), 4.0));
-      shapeAngle = initP.ang + (a - initP.a);
+      const pt = { x: ptrs[0].clientX - r.left, y: ptrs[0].clientY - r.top };
+      
+      if (interactionMode === 'move') {
+        shapePos = { x: Math.max(0, Math.min(r.width, pt.x)), y: Math.max(0, Math.min(r.height, pt.y)) }; 
+      } else if (interactionMode === 'rotate' && activeShape === 'arrow') {
+        const currentAngle = Math.atan2(pt.y - shapePos.y, pt.x - shapePos.x);
+        shapeAngle = initialShapeAngle + (currentAngle - initAngle);
+      } else if (interactionMode === 'scale' && activeShape === 'circle') {
+        const currentDist = Math.hypot(pt.x - shapePos.x, pt.y - shapePos.y);
+        // 中心に近づけると縮小、離すと拡大
+        shapeScale = Math.max(0.2, Math.min(initScale * (currentDist / initDist), 5.0));
+      }
+    } else if (ptrs.length === 2 && interactionMode === 'pinch' && activeShape === 'arrow') {
+      const currentDist = Math.hypot(ptrs[0].clientX - ptrs[1].clientX, ptrs[0].clientY - ptrs[1].clientY);
+      shapeScale = Math.max(0.4, Math.min(initScale * (currentDist / initDist), 5.0));
     }
     updateUI();
   });
   
   const up = e => { 
     ptrs = ptrs.filter(p => p.pointerId !== e.pointerId); 
-    if(ptrs.length < 2) initP = null; 
+    if(ptrs.length === 0) interactionMode = null; 
   };
   cameraWrapper.addEventListener('pointerup', up); 
   cameraWrapper.addEventListener('pointercancel', up);
+  cameraWrapper.addEventListener('pointerout', up);
 }
 
+/* =======================================
+   4. インポート処理 (最高画質で保存)
+======================================= */
 async function handleImport(e) {
   const files = Array.from(e.target.files); 
   if(!files.length) return;
@@ -569,13 +613,13 @@ async function handleImport(e) {
   for(let i=0; i<files.length; i++) {
     const file = files[i];
     const bmp = await createImageBitmap(file);
-    let w = bmp.width, h = bmp.height, max = 1600;
-    if(w > h && w > max) { h = Math.round(h * max / w); w = max; } 
-    else if(h > max) { w = Math.round(w * max / h); h = max; }
+    let w = bmp.width, h = bmp.height;
     
     cvs.width = w; cvs.height = h; 
     ctx.drawImage(bmp, 0, 0, w, h);
-    const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.9));
+    
+    // アプリ内DBには圧縮率の低い(1.0)最高画質で保存する
+    const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 1.0));
     const item = { id: Date.now() + i, blob, stamp: "未編集", created: new Date().toISOString(), selected: false, coords: deviceCoords, saved: false, shared: false };
     photos.unshift(item); 
     await db.transaction("photos","readwrite").objectStore("photos").put(item);
@@ -586,6 +630,9 @@ async function handleImport(e) {
   openM('modalGallery');
 }
 
+/* =======================================
+   5. エディタモード切替
+======================================= */
 function openEditor(id) {
   const p = photos.find(x => x.id === id); 
   if(!p) return;
@@ -605,7 +652,6 @@ function openEditor(id) {
   document.getElementById("mainHeader").classList.add("edit-mode");
   
   syncActionButtons(true);
-  
   closeM('modalGallery');
   currentStamp = null; activeShape = null; shapePos = null; updateUI();
 }
@@ -625,24 +671,25 @@ function closeEditor() {
   document.getElementById("mainHeader").classList.remove("edit-mode");
   
   syncActionButtons(false);
-  
   currentStamp = null; activeShape = null; shapePos = null; updateUI();
 }
 
+/* =======================================
+   6. 撮影・保存処理 (常に最高画質)
+======================================= */
 function captureOrSave() {
   if (editMode) saveEdit(); else capturePhoto();
 }
 
 async function capturePhoto() {
-  if(!video.videoWidth) return toast("カメラ準備中です");
+  if(!video.videoWidth) return toast("カメラ準備中です...");
   
   const flash = document.getElementById("flashEffect");
   flash.style.opacity = "1"; 
   setTimeout(() => flash.style.opacity = "0", 120);
 
-  let w = video.videoWidth, h = video.videoHeight, max = 1600;
-  if(w > h && w > max) { h = Math.round(h * max / w); w = max; } 
-  else if(h > max) { w = Math.round(w * max / h); h = max; }
+  // リサイズせず、カメラのフル解像度(videoWidth)をそのまま使用
+  let w = video.videoWidth, h = video.videoHeight;
   
   cvs.width = w; cvs.height = h; 
   const sc = w / video.videoWidth;
@@ -655,14 +702,15 @@ async function capturePhoto() {
     drawShape(ctx, pt.x * sc, pt.y * sc, w, h);
   }
   
-  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.9));
+  // 品質 1.0 の最高画質で保存
+  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 1.0));
   const stampName = currentStamp || (activeShape ? "図形追加" : "現場写真");
   const item = { id: Date.now(), blob, stamp: stampName, created: new Date().toISOString(), selected: true, coords: deviceCoords, saved: false, shared: false };
   photos.unshift(item); 
   await db.transaction("photos","readwrite").objectStore("photos").put(item);
   
   updateUI(); 
-  toast(`撮影しました（計${photos.length}枚）`);
+  toast(`最高画質で撮影しました（計${photos.length}枚）`);
 }
 
 async function saveEdit() {
@@ -677,7 +725,8 @@ async function saveEdit() {
     drawShape(ctx, pt.x, pt.y, srcW, srcH);
   }
 
-  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.9));
+  // 品質 0.95 以上の高画質で上書き
+  const blob = await new Promise(r => cvs.toBlob(r, "image/jpeg", 0.95));
   const stampName = currentStamp || (activeShape ? "図形追加" : "編集済");
   
   const item = photos.find(x => x.id === editTargetId);
@@ -779,14 +828,38 @@ function renderGallery() {
   });
 }
 
+/* =======================================
+   7. 送信時 リサイズ・圧縮処理 (1MB制限)
+======================================= */
+async function compressForEmail(blob) {
+  const bmp = await createImageBitmap(blob);
+  let w = bmp.width, h = bmp.height;
+  
+  // 1MB以下に抑えるためのリサイズ (長辺1440px程度に)
+  const maxDim = 1440;
+  if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; } 
+  else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+  
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const cx = c.getContext("2d");
+  cx.drawImage(bmp, 0, 0, w, h);
+  
+  // 品質 0.8 で圧縮出力
+  return new Promise(r => c.toBlob(r, "image/jpeg", 0.8));
+}
+
 async function executeShare() {
   const sel = photos.filter(p => p.selected); 
   if(!sel.length) return toast("写真が選択されていません");
+  
+  toast("圧縮の準備をしています...");
+  
   const email = document.getElementById("sendEmail").value.trim();
   const num = document.getElementById("sendJobNum").value.trim() || "現場報告";
   localStorage.setItem("defEmail", email);
   
-  if(email) { try { await navigator.clipboard.writeText(email); toast("宛先をコピーしました！"); } catch(e) {} }
+  if(email) { try { await navigator.clipboard.writeText(email); } catch(e) {} }
 
   let text = `【案件名・受付番号】\n${num}\n\n`;
   sel.forEach((p, idx) => {
@@ -797,11 +870,17 @@ async function executeShare() {
     else text += `Googleマップ: 位置情報なし\n\n`;
   });
   
-  const files = await Promise.all(sel.map(async (p,i) => new File([await p.blob.arrayBuffer()], `写真_${i+1}.jpg`, {type:"image/jpeg"})));
+  // 選択されたすべての画像を圧縮してFileオブジェクトに変換
+  const files = await Promise.all(sel.map(async (p, i) => {
+    const compressedBlob = await compressForEmail(p.blob);
+    return new File([await compressedBlob.arrayBuffer()], `写真_${i+1}.jpg`, {type:"image/jpeg"});
+  }));
+  
   if(navigator.canShare && navigator.canShare({files})) {
     setTimeout(async () => {
       try { 
         await navigator.share({text, files}); 
+        // 送信成功フラグを立てる
         sel.forEach(p => {
           p.shared = true;
           db.transaction("photos","readwrite").objectStore("photos").put(p);
@@ -814,6 +893,9 @@ async function executeShare() {
   }
 }
 
+/* =======================================
+   8. カスタムスタンプ
+======================================= */
 let customStamps = [];
 function loadSettings() {
   customStamps = JSON.parse(localStorage.getItem("customStamps")) || [];
