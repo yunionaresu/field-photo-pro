@@ -36,7 +36,7 @@
     
     #app { width: 100%; height: 100dvh; display: flex; flex-direction: column; filter: blur(0px); transition: filter 0.3s; }
     
-    /* 🪟 Header (セーフエリア対応・フレキシブル) */
+    /* 🪟 Header */
     .header { 
       padding-top: env(safe-area-inset-top); 
       height: calc(52px + env(safe-area-inset-top)); 
@@ -52,47 +52,41 @@
     .header.edit-mode .header-btn { background: var(--bg-light); color: var(--text-main); border: 1px solid var(--border); }
     
     /* =====================================
-       📷 Main Content & ファインダー最大化
+       📷 Main Content & ファインダー
        ===================================== */
     #mainContent { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; background: var(--bg-dark); transition: background 0.2s; }
     #mainContent.edit-mode { background: var(--bg-light); }
     
-    /* ファインダーを限界まで広げる */
     #cameraArea { 
       flex: 1; display: flex; position: relative; min-height: 0; min-width: 0; overflow: hidden;
       padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
     }
     
-    /* 映像を親要素いっぱいにフィット (cover) */
     #video, #editorImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
-    #editorImg { display: none; object-fit: contain; } /* 編集時は全貌を見せるためcontain */
+    #editorImg { display: none; object-fit: contain; } 
 
-    /* =====================================
-       🔴 中央フローティングシャッター
-       ===================================== */
+    /* 🔴 中央フローティングシャッター */
     .shutter-container {
       position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
       z-index: 30; display: flex; align-items: center; justify-content: center;
     }
 
-    /* 半透明の外周リングと白い中央部 */
     .shutter-btn {
       width: 72px; height: 72px; border-radius: 50%;
-      background: rgba(255, 255, 255, 0.3); /* 半透明の外周 */
+      background: rgba(255, 255, 255, 0.3);
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; padding: 0; border: none; backdrop-filter: blur(4px);
     }
     .shutter-inner {
       width: 56px; height: 56px; border-radius: 50%;
-      background: #FFFFFF; /* 真っ白な中央部 */
+      background: #FFFFFF; 
       transition: transform 0.1s ease;
       display: flex; align-items: center; justify-content: center;
     }
-    .shutter-btn:active .shutter-inner { transform: scale(0.85); } /* 押し込みアクション */
+    .shutter-btn:active .shutter-inner { transform: scale(0.85); } 
     
     .shutter-icon { display: none; width: 26px; height: 26px; color: #fff; }
 
-    /* 編集モード時 (上書き保存) */
     .shutter-btn.edit-save { background: rgba(15, 23, 42, 0.3); }
     .shutter-btn.edit-save .shutter-inner { background: var(--text-main); }
     .shutter-btn.edit-save .shutter-icon { display: block; }
@@ -131,10 +125,7 @@
     @media (orientation: landscape) {
       #mainContent { flex-direction: row; }
       #cameraArea { padding-bottom: 0; }
-      
-      /* シャッターを右側にフロート */
       .shutter-container { bottom: 50%; left: auto; right: 20px; transform: translateY(50%); }
-
       #toolsPanel { width: 280px; justify-content: flex-start; padding-top: 16px; }
       #mainContent.edit-mode #toolsPanel { border-radius: 24px 0 0 24px; border-left: 1px solid var(--border); }
       .tools-grid { grid-template-columns: repeat(2, 1fr); }
@@ -175,7 +166,7 @@
     #toast { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(255,255,255,0.95); color: var(--text-main); padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; white-space: nowrap; box-shadow: var(--shadow-md); text-align: center; }
 
     /* =====================================
-       🔐 PIN認証・権限ブロックオーバーレイ
+       🔐 権限・PIN認証オーバーレイ
        ===================================== */
     .overlay-fullscreen { position: fixed; inset: 0; z-index: 99999; background: var(--bg-dark); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; transition: opacity 0.3s; }
     .card-dialog { background: var(--surface); padding: 30px 20px; border-radius: 20px; width: 100%; max-width: 320px; text-align: center; box-shadow: var(--shadow-md); }
@@ -288,9 +279,15 @@
     </div>
     <div style="padding:10px 16px; background:var(--bg-light); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
       <div style="font-size:0.9rem; font-weight:800;">選択中: <span id="selCount" style="color:var(--primary);">0</span> 枚</div>
-      <button class="btn-light" id="btnDelete" style="height:36px; padding:0 12px; color:var(--primary); border-color:#fca5a5; background:#fff1f2;">
-        🗑 削除
-      </button>
+      <div style="display:flex; gap:8px;">
+        <!-- ★ データ復元ボタン -->
+        <button class="btn-light" id="btnRestoreOldData" style="height:36px; padding:0 12px; font-size:0.8rem;">
+          ♻️ 過去の写真を復元
+        </button>
+        <button class="btn-light" id="btnDelete" style="height:36px; padding:0 12px; color:var(--primary); border-color:#fca5a5; background:#fff1f2;">
+          🗑 削除
+        </button>
+      </div>
     </div>
     <div class="m-body" id="galleryList"></div>
     <div class="m-bottom">
@@ -357,6 +354,18 @@
 </section>
 
 <script>
+// ========================================================
+// 過去データベースの自動サルベージ機能 (アップデートでの消失対策)
+// ========================================================
+const CURRENT_DB_NAME = "FieldCameraProDB_Master"; // 今後これを固定値にする
+const OLD_DB_NAMES = [
+  "SiteCameraDB", "SiteCamDB_V2", "SiteCamDB_V3", "SiteCamDB_V4",
+  "FieldCamProDB", "FieldCamProDB_Final", "FieldCameraProDB_v3",
+  "FieldCameraProDB_v4", "FieldCameraProDB_v5", "FieldCameraProDB_v6",
+  "FieldCameraProDB_v7", "FieldCameraProDB_v8", "FieldCameraProDB_v9",
+  "FieldCameraProDB_v10", "FieldCameraProDB_v11", "FieldCameraProDB_v12"
+];
+
 let db, photos = [];
 let stream, cameraStarted = false;
 let editMode = false, editTargetId = null;
@@ -388,7 +397,7 @@ const cameraArea = document.getElementById("cameraArea");
 const shapePreview = document.getElementById("shapePreview");
 
 /* =======================================
-   1. PIN認証 & 初期化
+   1. PIN認証 & 初期化プロセス
 ======================================= */
 window.onload = () => {
   if (localStorage.getItem("authorized_pin") === APP_PIN_CODE) {
@@ -419,6 +428,7 @@ async function initAppWithPermission() {
   loadSettings();
   setupEvents();
   updateUI();
+  
   await requestPermissions();
 }
 
@@ -449,7 +459,8 @@ async function requestPermissions() {
         }, () => {}, {enableHighAccuracy: true});
         resolve(true);
       },
-      err => { resolve(false); }, {enableHighAccuracy: true, timeout: 10000}
+      err => { resolve(false); },
+      {enableHighAccuracy: true, timeout: 10000}
     );
   }).then(res => { gpsOk = res; });
 
@@ -461,10 +472,10 @@ async function requestPermissions() {
     await video.play();
     cameraStarted = true;
 
-    // ★ 起動時ヒントの表示
+    // 起動時ヒントの表示
     const hint = document.getElementById("startupHint");
     hint.style.opacity = "1";
-    setTimeout(() => { hint.style.opacity = "0"; }, 2000);
+    setTimeout(() => { hint.style.opacity = "0"; }, 2500);
 
   } else {
     let errStr = "不正利用防止のため、以下の権限が【必須】です：\n\n";
@@ -477,7 +488,7 @@ async function requestPermissions() {
 
 function initDB() {
   return new Promise(res => {
-    const req = indexedDB.open("FieldCameraProDB_v12", 1);
+    const req = indexedDB.open(CURRENT_DB_NAME, 1);
     req.onupgradeneeded = e => { if(!e.target.result.objectStoreNames.contains("photos")) e.target.result.createObjectStore("photos", {keyPath:"id"}); };
     req.onsuccess = e => {
       db = e.target.result;
@@ -490,9 +501,57 @@ function initDB() {
   });
 }
 
+// ★ 過去データのサルベージ処理
+async function migrateOldData() {
+  toast("過去のデータを捜索しています...");
+  let totalMigrated = 0;
+  
+  for (const oldDbName of OLD_DB_NAMES) {
+    try {
+      const oldPhotos = await new Promise((resolve) => {
+        const req = indexedDB.open(oldDbName);
+        req.onsuccess = (e) => {
+          const tempDb = e.target.result;
+          if (!tempDb.objectStoreNames.contains("photos")) { tempDb.close(); resolve([]); return; }
+          const tx = tempDb.transaction("photos", "readonly");
+          const getReq = tx.objectStore("photos").getAll();
+          getReq.onsuccess = (ev) => { tempDb.close(); resolve(ev.target.result || []); };
+          getReq.onerror = () => { tempDb.close(); resolve([]); };
+        };
+        req.onerror = () => resolve([]);
+      });
+
+      if (oldPhotos.length > 0) {
+        for (const p of oldPhotos) {
+          // 既に復元済みでないかチェック
+          if (!photos.some(existing => existing.id === p.id)) {
+            photos.unshift(p);
+            await db.transaction("photos", "readwrite").objectStore("photos").put(p);
+            totalMigrated++;
+          }
+        }
+      }
+    } catch(err) {
+      console.warn("Skip migration for", oldDbName);
+    }
+  }
+  
+  if (totalMigrated > 0) {
+    photos.sort((a,b) => b.id - a.id);
+    document.getElementById("gCount").textContent = photos.length;
+    renderGallery();
+    toast(`${totalMigrated}枚の過去写真を復元しました！`);
+  } else {
+    toast("復元できる過去のデータは見つかりませんでした。");
+  }
+}
+
 function setupEvents() {
+  document.getElementById("btnRestoreOldData").onclick = migrateOldData; // 復元ボタン
+
   document.querySelectorAll("[data-stamp]").forEach(b => b.onclick = () => {
-    currentStamp = currentStamp === b.dataset.stamp ? null : b.dataset.stamp; updateUI();
+    currentStamp = currentStamp === b.dataset.stamp ? null : b.dataset.stamp; 
+    updateUI();
   });
   
   document.querySelectorAll("[data-shape]").forEach(b => b.onclick = () => {
@@ -514,7 +573,8 @@ function setupEvents() {
 
   document.getElementById("btnSelectAll").onclick = () => {
     const chk = photos.some(p => !p.selected);
-    photos.forEach(p => p.selected = chk); renderGallery();
+    photos.forEach(p => p.selected = chk); 
+    renderGallery();
   };
   
   document.getElementById("btnDelete").onclick = () => {
@@ -522,7 +582,8 @@ function setupEvents() {
     if(sel.length && confirm(`${sel.length}枚削除しますか？`)) {
       sel.forEach(p => db.transaction("photos","readwrite").objectStore("photos").delete(p.id));
       photos = photos.filter(p => !p.selected); 
-      renderGallery(); updateUI();
+      renderGallery();
+      updateUI();
     }
   };
   
@@ -535,13 +596,20 @@ function setupEvents() {
       if(navigator.canShare && navigator.canShare({files})) {
         try {
           await navigator.share({files});
-          sel.forEach(p => { p.saved = true; db.transaction("photos","readwrite").objectStore("photos").put(p); });
+          sel.forEach(p => {
+            p.saved = true;
+            db.transaction("photos","readwrite").objectStore("photos").put(p);
+          });
           renderGallery();
         } catch(e) {}
       } else {
         sel.forEach(p => {
-          const a = document.createElement("a"); a.href = URL.createObjectURL(p.blob); a.download = `現場写真_${Date.now()}.jpg`; a.click();
-          p.saved = true; db.transaction("photos","readwrite").objectStore("photos").put(p);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(p.blob);
+          a.download = `現場写真_${Date.now()}.jpg`;
+          a.click();
+          p.saved = true;
+          db.transaction("photos","readwrite").objectStore("photos").put(p);
         });
         renderGallery();
       }
@@ -567,7 +635,8 @@ function setSendType(type) {
 }
 
 function cycleStampPosition() {
-  stampPosIndex = (stampPosIndex + 1) % positions.length; updateUI();
+  stampPosIndex = (stampPosIndex + 1) % positions.length;
+  updateUI();
 }
 
 function updateUI() {
@@ -576,25 +645,35 @@ function updateUI() {
   
   const currentPosKey = positions[stampPosIndex];
   const posBtn = document.getElementById("btnPosCycle");
-  if(posBtn) { posBtn.textContent = `📍 位置: ${positionLabels[currentPosKey]}`; posBtn.classList.add("active"); }
+  if(posBtn) {
+    posBtn.textContent = `📍 位置: ${positionLabels[currentPosKey]}`;
+    posBtn.classList.add("active");
+  }
   
   const sp = document.getElementById("stampPreview");
   if(currentStamp) {
-    sp.style.display = "block"; sp.textContent = currentStamp;
+    sp.style.display = "block"; 
+    sp.textContent = currentStamp;
     sp.style.top = "auto"; sp.style.bottom = "auto"; sp.style.left = "auto"; sp.style.right = "auto";
+    
     if(currentPosKey === "top-left") { sp.style.top="12px"; sp.style.left="12px"; }
     else if(currentPosKey === "top-right") { sp.style.top="12px"; sp.style.right="12px"; }
     else if(currentPosKey === "bottom-left") { sp.style.bottom="12px"; sp.style.left="12px"; }
     else if(currentPosKey === "bottom-right") { sp.style.bottom="12px"; sp.style.right="12px"; }
-  } else { sp.style.display = "none"; }
+  } else {
+    sp.style.display = "none";
+  }
 
   if(activeShape && shapePos) {
     shapePreview.style.display = "block";
-    shapePreview.style.left = shapePos.x + "px"; shapePreview.style.top = shapePos.y + "px";
+    shapePreview.style.left = shapePos.x + "px"; 
+    shapePreview.style.top = shapePos.y + "px";
     shapePreview.style.transform = `translate(-50%, -50%) rotate(${shapeAngle}rad) scale(${shapeScale})`;
     document.getElementById("svgArrow").style.display = activeShape === 'arrow' ? "block" : "none";
     document.getElementById("svgCircle").style.display = activeShape === 'circle' ? "block" : "none";
-  } else { shapePreview.style.display = "none"; }
+  } else {
+    shapePreview.style.display = "none";
+  }
   document.getElementById("gCount").textContent = photos.length;
 }
 
@@ -605,29 +684,31 @@ function syncActionButtons(isEdit) {
   });
 }
 
-function showFullScreenHelp() { toast("Safari下部の [共有ボタン] から<br>『ホーム画面に追加』を押すと<br>URLバーが消えて全画面アプリになります"); }
+function showFullScreenHelp() {
+  toast("Safari下部の [共有ボタン] から<br>『ホーム画面に追加』を押すと<br>URLバーが消えて全画面アプリになります");
+}
 
-/* =======================================
-   3. 直感的な図形ジェスチャー
-======================================= */
 function setupGestures() {
   let ptrs = []; 
   
   cameraArea.addEventListener('pointerdown', e => {
     if(!activeShape) return;
-    if(e.target.closest('.shutter-container')) return; // シャッターボタンは除外
+    if(e.target.closest('.shutter-container')) return; 
 
-    e.preventDefault(); ptrs.push(e);
+    e.preventDefault(); 
+    ptrs.push(e);
     
     const r = cameraArea.getBoundingClientRect();
     const pt = { x: e.clientX - r.left, y: e.clientY - r.top };
 
     if(ptrs.length === 1) {
       if(!shapePos) {
-        shapePos = pt; interactionMode = 'move';
+        shapePos = pt;
+        interactionMode = 'move';
       } else {
         const dist = Math.hypot(pt.x - shapePos.x, pt.y - shapePos.y);
         const hitRadius = 50 * shapeScale;
+
         if (dist <= Math.max(40, hitRadius * 0.8)) {
           interactionMode = 'move';
         } else {
@@ -636,7 +717,9 @@ function setupGestures() {
             initAngle = Math.atan2(pt.y - shapePos.y, pt.x - shapePos.x);
             initialShapeAngle = shapeAngle;
           } else if (activeShape === 'circle') {
-            interactionMode = 'scale'; initDist = dist; initScale = shapeScale;
+            interactionMode = 'scale';
+            initDist = dist;
+            initScale = shapeScale;
           }
         }
       }
@@ -651,12 +734,14 @@ function setupGestures() {
   cameraArea.addEventListener('pointermove', e => {
     if(!activeShape || ptrs.length === 0) return;
     e.preventDefault();
-    const idx = ptrs.findIndex(p => p.pointerId === e.pointerId); if(idx >= 0) ptrs[idx] = e;
+    const idx = ptrs.findIndex(p => p.pointerId === e.pointerId); 
+    if(idx >= 0) ptrs[idx] = e;
     
     const r = cameraArea.getBoundingClientRect();
 
     if(ptrs.length === 1) { 
       const pt = { x: ptrs[0].clientX - r.left, y: ptrs[0].clientY - r.top };
+      
       if (interactionMode === 'move') {
         shapePos = { x: Math.max(0, Math.min(r.width, pt.x)), y: Math.max(0, Math.min(r.height, pt.y)) }; 
       } else if (interactionMode === 'rotate' && activeShape === 'arrow') {
@@ -673,36 +758,51 @@ function setupGestures() {
     updateUI();
   });
   
-  const up = e => { ptrs = ptrs.filter(p => p.pointerId !== e.pointerId); if(ptrs.length === 0) interactionMode = null; };
-  cameraArea.addEventListener('pointerup', up); cameraArea.addEventListener('pointercancel', up);
+  const up = e => { 
+    ptrs = ptrs.filter(p => p.pointerId !== e.pointerId); 
+    if(ptrs.length === 0) interactionMode = null; 
+  };
+  cameraArea.addEventListener('pointerup', up); 
+  cameraArea.addEventListener('pointercancel', up);
+  cameraArea.addEventListener('pointerout', up);
 }
 
 /* =======================================
    4. Exif 抽出 & 書き込み
 ======================================= */
 function degToDmsRational(degFloat) {
-  const deg = Math.floor(degFloat); const minFloat = (degFloat - deg) * 60;
-  const min = Math.floor(minFloat); const secFloat = (minFloat - min) * 60;
-  const sec = Math.round(secFloat * 100); return [[deg, 1], [min, 1], [sec, 100]];
+  const deg = Math.floor(degFloat);
+  const minFloat = (degFloat - deg) * 60;
+  const min = Math.floor(minFloat);
+  const secFloat = (minFloat - min) * 60;
+  const sec = Math.round(secFloat * 100);
+  return [[deg, 1], [min, 1], [sec, 100]];
 }
 
 function getExifData(dataUrl) {
-  let coords = null; let createdDate = null;
+  let coords = null;
+  let createdDate = null;
   try {
     const exif = piexif.load(dataUrl);
     if (exif["GPS"] && exif["GPS"][piexif.GPSIFD.GPSLatitude] && exif["GPS"][piexif.GPSIFD.GPSLongitude]) {
-      const latArr = exif["GPS"][piexif.GPSIFD.GPSLatitude]; const latRef = exif["GPS"][piexif.GPSIFD.GPSLatitudeRef] || 'N';
-      const lngArr = exif["GPS"][piexif.GPSIFD.GPSLongitude]; const lngRef = exif["GPS"][piexif.GPSIFD.GPSLongitudeRef] || 'E';
+      const latArr = exif["GPS"][piexif.GPSIFD.GPSLatitude];
+      const latRef = exif["GPS"][piexif.GPSIFD.GPSLatitudeRef] || 'N';
+      const lngArr = exif["GPS"][piexif.GPSIFD.GPSLongitude];
+      const lngRef = exif["GPS"][piexif.GPSIFD.GPSLongitudeRef] || 'E';
+      
       const lat = (latArr[0][0]/latArr[0][1]) + (latArr[1][0]/latArr[1][1])/60 + (latArr[2][0]/latArr[2][1])/3600;
       const lng = (lngArr[0][0]/lngArr[0][1]) + (lngArr[1][0]/lngArr[1][1])/60 + (lngArr[2][0]/lngArr[2][1])/3600;
       coords = { lat: latRef === 'S' ? -lat : lat, lng: lngRef === 'W' ? -lng : lng };
     }
+    
     const dt = exif["Exif"][piexif.ExifIFD.DateTimeOriginal] || exif["0th"][piexif.ImageIFD.DateTime];
     if (dt && typeof dt === 'string') {
       const parts = dt.split(/[: ]/);
-      if (parts.length === 6) { createdDate = new Date(parts[0], parts[1]-1, parts[2], parts[3], parts[4], parts[5]); }
+      if (parts.length === 6) {
+        createdDate = new Date(parts[0], parts[1]-1, parts[2], parts[3], parts[4], parts[5]);
+      }
     }
-  } catch(e) {}
+  } catch(e) { }
   return { coords, createdDate };
 }
 
@@ -724,23 +824,35 @@ async function generateExifBlob(canvas, quality, dateObj, coords) {
       exifObj["GPS"][piexif.GPSIFD.GPSLongitudeRef] = coords.lng < 0 ? 'W' : 'E';
       exifObj["GPS"][piexif.GPSIFD.GPSLongitude] = degToDmsRational(Math.abs(coords.lng));
     }
+    
     const exifStr = piexif.dump(exifObj);
     const insertedStr = piexif.insert(exifStr, dataUrl);
     
-    const arr = insertedStr.split(','); const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]); let n = bstr.length; const u8arr = new Uint8Array(n);
+    const arr = insertedStr.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
     while(n--) { u8arr[n] = bstr.charCodeAt(n); }
     return new Blob([u8arr], {type: mime});
-  } catch(e) { return new Promise(r => canvas.toBlob(r, "image/jpeg", quality)); }
+  } catch(e) {
+    return new Promise(r => canvas.toBlob(r, "image/jpeg", quality));
+  }
 }
 
 async function handleImport(e) {
-  const files = Array.from(e.target.files); if(!files.length) return;
+  const files = Array.from(e.target.files); 
+  if(!files.length) return;
   toast(`画像を読み込んでいます...`);
   
   for(let i=0; i<files.length; i++) {
     const file = files[i];
-    const dataUrl = await new Promise(r => { const reader = new FileReader(); reader.onload = ev => r(ev.target.result); reader.readAsDataURL(file); });
+    
+    const dataUrl = await new Promise(r => {
+      const reader = new FileReader();
+      reader.onload = ev => r(ev.target.result);
+      reader.readAsDataURL(file);
+    });
     
     const { coords: extractedCoords, createdDate } = getExifData(dataUrl);
     const finalDate = createdDate || new Date();
@@ -748,73 +860,106 @@ async function handleImport(e) {
 
     const bmp = await createImageBitmap(file);
     let w = bmp.width, h = bmp.height;
-    cvs.width = w; cvs.height = h; ctx.drawImage(bmp, 0, 0, w, h);
+    
+    cvs.width = w; cvs.height = h; 
+    ctx.drawImage(bmp, 0, 0, w, h);
     
     const blob = await generateExifBlob(cvs, 1.0, finalDate, finalCoords);
-    const item = { id: Date.now() + i, blob, stamp: "未編集", created: finalDate.toISOString(), selected: false, coords: finalCoords, saved: false, shared: false };
-    photos.unshift(item); await db.transaction("photos","readwrite").objectStore("photos").put(item);
+    const item = { 
+      id: Date.now() + i, 
+      blob, 
+      stamp: "未編集", 
+      created: finalDate.toISOString(), 
+      selected: false, 
+      coords: finalCoords, 
+      saved: false, 
+      shared: false 
+    };
+    photos.unshift(item); 
+    await db.transaction("photos","readwrite").objectStore("photos").put(item);
   }
-  e.target.value = ""; updateUI(); renderGallery(); openM('modalGallery');
+  e.target.value = ""; 
+  updateUI();
+  renderGallery(); 
+  openM('modalGallery');
 }
 
 /* =======================================
    5. エディタモード切替
 ======================================= */
 function openEditor(id) {
-  const p = photos.find(x => x.id === id); if(!p) return;
-  editMode = true; editTargetId = id;
+  const p = photos.find(x => x.id === id); 
+  if(!p) return;
+  editMode = true; 
+  editTargetId = id;
   editorImg.src = URL.createObjectURL(p.blob);
   
-  video.style.display = "none"; editorImg.style.display = "block";
+  video.style.display = "none"; 
+  editorImg.style.display = "block";
   document.getElementById("mainActions").style.display = "none";
   document.getElementById("editActions").style.display = "flex";
   document.getElementById("mainContent").classList.add("edit-mode");
   document.getElementById("mainHeader").classList.add("edit-mode");
   
   syncActionButtons(true);
-  closeM('modalGallery'); currentStamp = null; activeShape = null; shapePos = null; updateUI();
+  closeM('modalGallery');
+  currentStamp = null; activeShape = null; shapePos = null; updateUI();
 }
 
 function closeEditor() {
-  editMode = false; editTargetId = null;
-  video.style.display = "block"; editorImg.style.display = "none";
+  editMode = false; 
+  editTargetId = null;
+  video.style.display = "block"; 
+  editorImg.style.display = "none";
   
   document.getElementById("mainActions").style.display = "flex";
   document.getElementById("editActions").style.display = "none";
   document.getElementById("mainContent").classList.remove("edit-mode");
   document.getElementById("mainHeader").classList.remove("edit-mode");
   
-  syncActionButtons(false); currentStamp = null; activeShape = null; shapePos = null; updateUI();
+  syncActionButtons(false);
+  currentStamp = null; activeShape = null; shapePos = null; updateUI();
 }
 
-/* =======================================
-   6. 撮影・保存処理 (フル解像度)
-======================================= */
-function captureOrSave() { if (editMode) saveEdit(); else capturePhoto(); }
+function captureOrSave() {
+  if (editMode) saveEdit(); else capturePhoto();
+}
 
 async function capturePhoto() {
   if(!video.videoWidth) return toast("カメラ準備中です...");
+  
   const flash = document.getElementById("flashEffect");
-  flash.style.opacity = "1"; setTimeout(() => flash.style.opacity = "0", 120);
+  flash.style.opacity = "1"; 
+  setTimeout(() => flash.style.opacity = "0", 120);
 
   let w = video.videoWidth, h = video.videoHeight;
   cvs.width = w; cvs.height = h; 
+  const sc = w / video.videoWidth;
   ctx.drawImage(video, 0, 0, w, h);
   
   if(currentStamp) drawStamp(ctx, currentStamp, w, h);
   if(activeShape && shapePos) {
-    const r = cameraArea.getBoundingClientRect();
-    const pt = { x: shapePos.x * (w / r.width), y: shapePos.y * (h / r.height) };
-    drawShape(ctx, pt.x, pt.y, w, h);
+    const r = cameraWrapper.getBoundingClientRect();
+    const pt = { x: shapePos.x * (video.videoWidth / r.width), y: shapePos.y * (video.videoHeight / r.height) };
+    drawShape(ctx, pt.x * sc, pt.y * sc, w, h);
   }
   
   const captureDate = new Date();
+  
+  if (!deviceCoords && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      deviceCoords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+    }, () => {}, {timeout: 1000});
+  }
+
   const blob = await generateExifBlob(cvs, 1.0, captureDate, deviceCoords);
   const stampName = currentStamp || (activeShape ? "図形追加" : "現場写真");
   const item = { id: captureDate.getTime(), blob, stamp: stampName, created: captureDate.toISOString(), selected: true, coords: deviceCoords, saved: false, shared: false };
-  photos.unshift(item); await db.transaction("photos","readwrite").objectStore("photos").put(item);
+  photos.unshift(item); 
+  await db.transaction("photos","readwrite").objectStore("photos").put(item);
   
-  updateUI(); toast(`最高画質で撮影しました`);
+  updateUI(); 
+  toast(`最高画質で撮影しました`);
 }
 
 async function saveEdit() {
@@ -824,20 +969,25 @@ async function saveEdit() {
 
   if(currentStamp) drawStamp(ctx, currentStamp, srcW, srcH);
   if(activeShape && shapePos) {
-    const r = cameraArea.getBoundingClientRect();
+    const r = cameraWrapper.getBoundingClientRect();
     const pt = { x: shapePos.x * (srcW / r.width), y: shapePos.y * (srcH / r.height) };
     drawShape(ctx, pt.x, pt.y, srcW, srcH);
   }
 
   const editDate = new Date();
   const p = photos.find(x => x.id === editTargetId);
+  
   const blob = await generateExifBlob(cvs, 0.95, editDate, p.coords || deviceCoords);
   const stampName = currentStamp || (activeShape ? "図形追加" : "編集済");
   
-  p.blob = blob; p.stamp = stampName;
+  p.blob = blob; 
+  p.stamp = stampName;
   await db.transaction("photos","readwrite").objectStore("photos").put(p);
   
-  toast("上書き保存しました"); closeEditor(); renderGallery(); openM('modalGallery');
+  toast("上書き保存しました"); 
+  closeEditor(); 
+  renderGallery(); 
+  openM('modalGallery');
 }
 
 function drawStamp(ctx, txt, w, h) {
@@ -851,16 +1001,28 @@ function drawStamp(ctx, txt, w, h) {
   else if(currentPosKey === "bottom-left") { x = m; y = h - boxH - m; }
   else if(currentPosKey === "bottom-right") { x = w - boxW - m; y = h - boxH - m; }
   
-  ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.lineJoin = "round"; ctx.lineWidth = 12; ctx.strokeStyle = "rgba(0,0,0,0.85)";
-  ctx.strokeRect(x+6, y+6, boxW-12, boxH-12); ctx.fillRect(x+6, y+6, boxW-12, boxH-12);
-  ctx.strokeStyle = "#fff"; ctx.lineWidth = Math.max(3, w * 0.003); ctx.strokeRect(x, y, boxW, boxH);
-  ctx.fillStyle = "#fff"; ctx.textBaseline = "middle"; ctx.fillText(txt, x + pad, y + boxH / 2);
+  ctx.fillStyle = "rgba(0,0,0,0.85)"; 
+  ctx.lineJoin = "round"; 
+  ctx.lineWidth = 12; 
+  ctx.strokeStyle = "rgba(0,0,0,0.85)";
+  ctx.strokeRect(x+6, y+6, boxW-12, boxH-12); 
+  ctx.fillRect(x+6, y+6, boxW-12, boxH-12);
+  ctx.strokeStyle = "#fff"; 
+  ctx.lineWidth = Math.max(3, w * 0.003); 
+  ctx.strokeRect(x, y, boxW, boxH);
+  ctx.fillStyle = "#fff"; 
+  ctx.textBaseline = "middle"; 
+  ctx.fillText(txt, x + pad, y + boxH / 2);
 }
 
 function drawShape(ctx, tx, ty, w, h) {
-  ctx.save(); ctx.translate(tx, ty); ctx.rotate(shapeAngle);
+  ctx.save(); 
+  ctx.translate(tx, ty); 
+  ctx.rotate(shapeAngle);
   const baseScale = (Math.min(w, h) / 1000) * shapeScale;
-  ctx.scale(baseScale, baseScale); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.scale(baseScale, baseScale); 
+  ctx.lineCap = "round"; 
+  ctx.lineJoin = "round";
   
   if(activeShape === 'arrow') {
     ctx.strokeStyle="#fff"; ctx.lineWidth=24;
@@ -877,17 +1039,30 @@ function drawShape(ctx, tx, ty, w, h) {
 }
 
 function renderGallery() {
-  const list = document.getElementById("galleryList"); list.innerHTML = "";
+  const list = document.getElementById("galleryList"); 
+  list.innerHTML = "";
   document.getElementById("selCount").textContent = photos.filter(p => p.selected).length;
-  if(!photos.length) { list.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text-sub); font-weight:700;">保存された写真がありません</div>`; return; }
+  if(!photos.length) { 
+    list.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text-sub); font-weight:700;">保存された写真がありません</div>`; 
+    return; 
+  }
   
   photos.forEach(p => {
     const row = document.createElement("div"); row.className = "g-row";
-    const chk = document.createElement("input"); chk.type = "checkbox"; chk.checked = p.selected; chk.style.width="24px"; chk.style.height="24px"; chk.style.accentColor="var(--primary)";
+    
+    const chk = document.createElement("input"); 
+    chk.type = "checkbox"; chk.checked = p.selected; 
+    chk.style.width="24px"; chk.style.height="24px"; chk.style.accentColor="var(--primary)";
     chk.onchange = () => { p.selected = chk.checked; document.getElementById("selCount").textContent = photos.filter(x=>x.selected).length; };
-    const img = document.createElement("img"); img.className = "g-thumb"; img.src = URL.createObjectURL(p.blob); img.onclick = () => openEditor(p.id);
-    const info = document.createElement("div"); info.className = "g-info";
-    const d = new Date(p.created); const timeStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    
+    const img = document.createElement("img"); 
+    img.className = "g-thumb"; img.src = URL.createObjectURL(p.blob);
+    img.onclick = () => openEditor(p.id);
+    
+    const info = document.createElement("div"); 
+    info.className = "g-info";
+    const d = new Date(p.created);
+    const timeStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
     
     let statusHtml = '<div class="status-tags">';
     if (p.shared) statusHtml += '<span class="status-badge badge-shared">✅ 送信済</span>';
@@ -897,20 +1072,25 @@ function renderGallery() {
 
     info.innerHTML = `<strong style="font-size:1rem; color:var(--text-main);">${p.stamp}</strong><br><small style="color:var(--text-sub);">${timeStr}</small>${statusHtml}`;
     info.onclick = () => openEditor(p.id);
-    row.append(chk, img, info); list.appendChild(row);
+    
+    row.append(chk, img, info); 
+    list.appendChild(row);
   });
 }
 
-/* =======================================
-   7. 送信時 圧縮処理＆フォーマット指定
-======================================= */
 async function compressForEmail(blob) {
   const bmp = await createImageBitmap(blob);
   let w = bmp.width, h = bmp.height;
+  
   const maxDim = 1440;
-  if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; } else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
-  const c = document.createElement("canvas"); c.width = w; c.height = h;
-  const cx = c.getContext("2d"); cx.drawImage(bmp, 0, 0, w, h);
+  if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; } 
+  else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+  
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const cx = c.getContext("2d");
+  cx.drawImage(bmp, 0, 0, w, h);
+  
   return await generateExifBlob(c, 0.8, new Date(), deviceCoords);
 }
 
@@ -919,14 +1099,15 @@ async function executeShare() {
   if(!sel.length) return toast("写真が選択されていません");
   
   toast("圧縮の準備をしています...");
+  
   const email = document.getElementById("sendEmail").value.trim();
   const num = document.getElementById("sendJobNum").value.trim() || "未入力";
   localStorage.setItem("defEmail", email);
+  
   if(email) { try { await navigator.clipboard.writeText(email); } catch(e) {} }
 
-  // ★ 要件通りのメール文面フォーマット
   let text = `【写真種別】\n${sendSelectedType}\n\n`;
-  text += `【受付番号】\n${num}\n\n`;
+  text += `【案件名・受付番号】\n${num}\n\n`;
   
   sel.forEach((p, idx) => {
     const d = new Date(p.created);
@@ -949,11 +1130,16 @@ async function executeShare() {
     setTimeout(async () => {
       try { 
         await navigator.share({text, files}); 
-        sel.forEach(p => { p.shared = true; db.transaction("photos","readwrite").objectStore("photos").put(p); });
+        sel.forEach(p => {
+          p.shared = true;
+          db.transaction("photos","readwrite").objectStore("photos").put(p);
+        });
         renderGallery();
       } catch(e){}
     }, email ? 800 : 0);
-  } else { toast("共有機能がサポートされていません"); }
+  } else {
+    toast("共有機能がサポートされていません");
+  }
 }
 
 let customStamps = [];
@@ -963,7 +1149,8 @@ function loadSettings() {
 }
 
 function renderCustomStamps() {
-  const list = document.getElementById("customStampList"); list.innerHTML = "";
+  const list = document.getElementById("customStampList"); 
+  list.innerHTML = "";
   if(!customStamps.length) list.innerHTML = "<div style='color:var(--text-sub); font-size:0.85rem; font-weight:700;'>カスタムスタンプはありません</div>";
   customStamps.forEach((t, i) => {
     const row = document.createElement("div"); row.style.display="flex"; row.style.gap="8px";
@@ -971,14 +1158,18 @@ function renderCustomStamps() {
     btn.onclick = () => { currentStamp = t; updateUI(); closeM('modalStamp'); };
     const del = document.createElement("button"); del.className = "icon-btn"; del.innerHTML = `<svg class="icon" viewBox="0 0 24 24" style="color:var(--primary);"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
     del.onclick = () => { customStamps.splice(i, 1); localStorage.setItem("customStamps", JSON.stringify(customStamps)); renderCustomStamps(); };
-    row.append(btn, del); list.appendChild(row);
+    row.append(btn, del); 
+    list.appendChild(row);
   });
 }
 
 function addCustomStamp() {
-  const v = document.getElementById("newStampText").value.trim(); if(!v) return;
-  customStamps.push(v); localStorage.setItem("customStamps", JSON.stringify(customStamps));
-  document.getElementById("newStampText").value = ""; renderCustomStamps();
+  const v = document.getElementById("newStampText").value.trim(); 
+  if(!v) return;
+  customStamps.push(v); 
+  localStorage.setItem("customStamps", JSON.stringify(customStamps));
+  document.getElementById("newStampText").value = ""; 
+  renderCustomStamps();
 }
 
 function openM(id) { document.getElementById(id).classList.add("show"); }
