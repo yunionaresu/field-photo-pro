@@ -1,1145 +1,905 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Field Camera</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>Field Camera</title>
 
-  <!-- 画像データにGPSと日時を直接埋め込むためのライブラリ -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.min.js"></script>
 
-  <script>
-    // ========================================================
-    // 🔐 【管理者設定】セキュリティ用 PINコード
-    // 漏洩した場合は、ここの数字を新しいものに変更してください。
-    // (変更しても、端末内に保存された写真データは消えません)
-    // ========================================================
-    const APP_PIN_CODE = "6276";
-  </script>
+<script>
+"use strict";
+const APP_PIN_CODE = "6276";
+</script>
 
-  <style>
-    :root {
-      --primary: #E11D48;
-      --bg-dark: #000000;
-      --bg-light: #F1F5F9;
-      --surface: #FFFFFF;
-      --text-main: #0F172A;
-      --text-sub: #64748B;
-      --border: #E2E8F0;
-      --shadow-md: 0 12px 32px rgba(0,0,0,0.15);
-    }
-    
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; user-select: none; }
-    html, body { width: 100%; height: 100%; background: var(--bg-dark); color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
-    
-    .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-    
-    #app { width: 100%; height: 100dvh; display: flex; flex-direction: column; filter: blur(0px); transition: filter 0.3s; }
-    
-    /* 🪟 Header */
-    .header { 
-      padding-top: env(safe-area-inset-top); 
-      height: calc(48px + env(safe-area-inset-top)); 
-      padding-left: max(12px, env(safe-area-inset-left));
-      padding-right: max(12px, env(safe-area-inset-right));
-      display: flex; align-items: center; justify-content: space-between; z-index: 10; flex-shrink: 0; background: var(--bg-dark); 
-    }
-    .header.edit-mode { background: var(--surface); color: var(--text-main); border-bottom: 1px solid var(--border); }
-    
-    .header-actions { display: flex; gap: 8px; align-items: center; width: 100%; justify-content: space-between; }
-    .header-btn { height: 32px; padding: 0 10px; border-radius: 8px; background: rgba(255,255,255,0.2); font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #fff; border: none; white-space: nowrap; }
-    .header-btn.primary { background: var(--primary); }
-    .header.edit-mode .header-btn { background: var(--bg-light); color: var(--text-main); border: 1px solid var(--border); }
-    
-    /* =====================================
-       📷 Main Content & Layout
-       ===================================== */
-    #mainContent { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; background: var(--bg-dark); transition: background 0.2s; }
-    #mainContent.edit-mode { background: var(--bg-light); }
-    
-    /* 🔴 丸型シャッターボタン */
-    .shutter-circle-btn {
-      width: 56px; height: 56px; border-radius: 50%;
-      background-color: #fff; border: 3px solid #cbd5e1;
-      box-shadow: 0 0 0 4px var(--bg-dark) inset, 0 4px 12px rgba(0,0,0,0.3);
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s ease; padding: 0;
-    }
-    .shutter-circle-btn:active { transform: scale(0.92); }
-    .shutter-icon { display: none; width: 24px; height: 24px; color: #fff; }
-    
-    .shutter-circle-btn.edit-save { background-color: var(--text-main); border-color: var(--text-main); box-shadow: none; }
-    .shutter-circle-btn.edit-save .shutter-icon { display: block; }
-
-    .alt-shutter-container { padding: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent; }
-    .shutter-wrapper { display: flex; justify-content: center; align-items: center; padding: 2px 0; flex-shrink: 0; }
-
-    /* 🔲 カメラ・ファインダー領域 */
-    #cameraArea { 
-      flex: 1; display: flex; justify-content: center; align-items: center;
-      padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); 
-      position: relative; min-height: 0; min-width: 0; overflow: hidden;
-    }
-    
-    #cameraWrapper {
-      position: relative; width: 100%; height: 100%; max-width: 100%; max-height: 100%;
-      background: #000; border-radius: 8px; overflow: hidden; 
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6); pointer-events: auto;
-      display: flex; justify-content: center; align-items: center;
-    }
-    #mainContent.edit-mode #cameraWrapper { box-shadow: var(--shadow-md); border: 1px solid var(--border); }
-    
-    #video, #editorImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
-    #editorImg { display: none; }
-
-    /* 🎨 オーバーレイ UI */
-    .overlay-ui { position: absolute; z-index: 20; pointer-events: none; }
-    #stampPreview { display: none; padding: 6px 14px; border-radius: 6px; background: rgba(0,0,0,0.85); border: 2px solid #fff; color: #fff; font-weight: 800; font-size: 1.1rem; letter-spacing: 0.05em; }
-    #shapePreview { position: absolute; z-index: 21; display: none; transform-origin: center center; pointer-events: none; }
-    
-    /* ★ 起動時のヒントメッセージ */
-    #startupHint {
-      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px;
-      border-radius: 20px; font-size: 0.9rem; font-weight: 800; z-index: 30;
-      pointer-events: none; opacity: 0; transition: opacity 0.4s ease; white-space: nowrap;
-    }
-
-    /* =====================================
-       🎛 ツールパネル
-       ===================================== */
-    #toolsPanel { background: transparent; padding: 6px max(12px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; z-index: 25; }
-    #mainContent.edit-mode #toolsPanel { background: var(--surface); border-radius: 20px 20px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
-
-    .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-    
-    .tool-btn { height: 40px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.1s; }
-    .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-    
-    #mainContent.edit-mode .tool-btn { background: var(--bg-light); border-color: var(--border); color: var(--text-main); }
-    #mainContent.edit-mode .tool-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-
-    /* 横画面 */
-    @media (orientation: landscape) {
-      #mainContent { flex-direction: row; }
-      .alt-shutter-container { width: 80px; border-bottom: none; display: flex; align-items: center; justify-content: center; }
-      #mainContent.edit-mode .alt-shutter-container { border-right: 1px solid var(--border); background: var(--surface); }
-      #cameraArea { padding: max(4px, env(safe-area-inset-top)) 8px max(4px, env(safe-area-inset-bottom)) 8px; }
-      #toolsPanel { width: 250px; justify-content: flex-start; }
-      #mainContent.edit-mode #toolsPanel { border-radius: 24px 0 0 24px; border-left: 1px solid var(--border); }
-      .tools-grid { grid-template-columns: repeat(2, 1fr); }
-      .shutter-wrapper { margin-top: auto; margin-bottom: 8px; }
-    }
-
-    /* =====================================
-       📁 Modals & Status Tags
-       ===================================== */
-    .modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; flex-direction: column; padding: 0; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-    .modal.show { opacity: 1; pointer-events: auto; }
-    .m-card { flex: 1; margin: env(safe-area-inset-top) 0 0 0; background: var(--bg-light); color: var(--text-main); border-radius: 24px 24px 0 0; display: flex; flex-direction: column; overflow: hidden; transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .modal.show .m-card { transform: translateY(0); }
-    
-    .m-header { height: 56px; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1rem; flex-shrink:0; }
-    .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-light); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); }
-    
-    .m-body { flex: 1; overflow-y: auto; padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left)); }
-    .m-bottom { padding: 12px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; flex-shrink:0; }
-    
-    .g-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface); border-radius: var(--radius-md); margin-bottom: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
-    .g-thumb { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; cursor: pointer; border: 1px solid var(--border); }
-    .g-info { flex: 1; cursor: pointer; }
-    
-    .status-tags { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
-    .status-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; white-space: nowrap; }
-    .badge-saved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-    .badge-shared { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-    .badge-none { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
-
-    .input-box { width: 100%; height: 48px; border: 2px solid var(--border); border-radius: 10px; padding: 0 16px; font-size: 1rem; font-weight: 700; outline: none; background: var(--surface); color: var(--text-main); }
-    .action-btn { height: 48px; background: var(--text-main); color: #fff; border: none; border-radius: 8px; font-weight: 800; font-size: 1rem; cursor: pointer; }
-    
-    /* 下部ボタン (白背景に黒文字) */
-    .btn-light { background: var(--surface); color: var(--text-main); border: 1.5px solid var(--border); font-weight: 800; border-radius: 8px; cursor: pointer; }
-    .btn-light:active { background: var(--bg-light); }
-
-    /* 種別選択ボタン */
-    .type-btn { flex: 1; height: 44px; background: var(--bg-light); border: 1.5px solid var(--border); border-radius: 8px; font-weight: 800; color: var(--text-main); cursor: pointer; }
-    .type-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-
-    #flashEffect { position: fixed; inset: 0; background: #fff; z-index: 9000; opacity: 0; pointer-events: none; transition: opacity 0.1s; }
-    #toast { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(255,255,255,0.95); color: var(--text-main); padding: 12px 24px; border-radius: 30px; font-weight: 800; display: none; white-space: nowrap; box-shadow: var(--shadow-md); text-align: center; }
-
-    /* =====================================
-       🔐 権限・PIN認証オーバーレイ
-       ===================================== */
-    .overlay-fullscreen { position: fixed; inset: 0; z-index: 99999; background: var(--bg-dark); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; transition: opacity 0.3s; }
-    .card-dialog { background: var(--surface); padding: 30px 20px; border-radius: 20px; width: 100%; max-width: 320px; text-align: center; box-shadow: var(--shadow-md); }
-  </style>
+<style>
+:root{
+  --primary:#e11d48;
+  --bg-dark:#000;
+  --bg-light:#f1f5f9;
+  --surface:#fff;
+  --text-main:#0f172a;
+  --text-sub:#64748b;
+  --border:#e2e8f0;
+  --shadow-md:0 12px 32px rgba(0,0,0,.15);
+  --radius-md:12px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;user-select:none}
+html,body{width:100%;height:100%;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;overflow:hidden;overscroll-behavior:none;touch-action:manipulation}
+button,input{font:inherit}
+button{cursor:pointer}
+.icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#app{width:100%;height:100dvh;display:flex;flex-direction:column;transition:filter .2s}
+.header{height:calc(48px + env(safe-area-inset-top));padding:env(safe-area-inset-top) max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;z-index:10;flex-shrink:0;background:#000}
+.header.edit-mode{background:#fff;color:var(--text-main);border-bottom:1px solid var(--border)}
+.header-actions{display:flex;gap:8px;align-items:center;width:100%;justify-content:space-between}
+.header-btn{height:34px;padding:0 10px;border-radius:8px;background:#334155;font-weight:700;font-size:.75rem;display:flex;align-items:center;gap:4px;color:#fff;border:0;white-space:nowrap}
+.header-btn.primary{background:var(--primary)}
+.header.edit-mode .header-btn{background:var(--bg-light);color:var(--text-main);border:1px solid var(--border)}
+#mainContent{flex:1;display:flex;flex-direction:column;min-height:0;position:relative;background:#000}
+#mainContent.edit-mode{background:var(--bg-light)}
+#cameraArea{flex:1;display:flex;justify-content:center;align-items:center;padding:4px max(8px,env(safe-area-inset-right)) 4px max(8px,env(safe-area-inset-left));position:relative;min-height:0;min-width:0;overflow:hidden}
+#cameraWrapper{position:relative;width:100%;height:100%;max-width:100%;max-height:100%;background:#000;border-radius:8px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.6);display:flex;justify-content:center;align-items:center;touch-action:none}
+#mainContent.edit-mode #cameraWrapper{box-shadow:var(--shadow-md);border:1px solid var(--border)}
+#video,#editorImg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+#editorImg{display:none}
+.overlay-ui{position:absolute;z-index:20;pointer-events:none}
+#stampPreview{display:none;padding:6px 14px;border-radius:6px;background:rgba(0,0,0,.85);border:2px solid #fff;color:#fff;font-weight:800;font-size:1.1rem;letter-spacing:.05em}
+#shapePreview{position:absolute;z-index:21;display:none;transform-origin:center;pointer-events:none}
+#startupHint{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);padding:10px 16px;border-radius:20px;font-size:.85rem;font-weight:800;z-index:30;pointer-events:none;opacity:0;transition:opacity .4s;white-space:nowrap}
+#toolsPanel{background:transparent;padding:6px max(12px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:6px;flex-shrink:0;z-index:25}
+#mainContent.edit-mode #toolsPanel{background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.05)}
+.tools-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.tool-btn{height:40px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#f8fafc;font-weight:800;font-size:.75rem;display:flex;align-items:center;justify-content:center;min-width:0}
+.tool-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+#mainContent.edit-mode .tool-btn{background:var(--bg-light);border-color:var(--border);color:var(--text-main)}
+#mainContent.edit-mode .tool-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.alt-shutter-container{padding:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.shutter-wrapper{display:flex;justify-content:center;align-items:center;padding:2px 0;flex-shrink:0}
+.shutter-circle-btn{width:56px;height:56px;border-radius:50%;background:#fff;border:3px solid #cbd5e1;box-shadow:0 0 0 4px #000 inset,0 4px 12px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0;transition:transform .12s}
+.shutter-circle-btn:active{transform:scale(.92)}
+.shutter-icon{display:none;width:24px;height:24px;color:#fff}
+.shutter-circle-btn.edit-save{background:var(--text-main);border-color:var(--text-main);box-shadow:none}
+.shutter-circle-btn.edit-save .shutter-icon{display:block}
+@media(orientation:landscape){
+ #mainContent{flex-direction:row}
+ .alt-shutter-container{width:76px}
+ #cameraArea{padding:8px}
+ #toolsPanel{width:230px;justify-content:flex-start}
+ #mainContent.edit-mode #toolsPanel{border-radius:24px 0 0 24px;border-left:1px solid var(--border)}
+ .tools-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .shutter-wrapper{margin-top:auto;margin-bottom:8px}
+}
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal.show{opacity:1;pointer-events:auto}
+.m-card{flex:1;margin:env(safe-area-inset-top) 0 0;background:var(--bg-light);color:var(--text-main);border-radius:24px 24px 0 0;display:flex;flex-direction:column;overflow:hidden;transform:translateY(16px);transition:transform .2s}
+.modal.show .m-card{transform:translateY(0)}
+.m-header{height:56px;padding:0 16px;display:flex;justify-content:space-between;align-items:center;background:#fff;border-bottom:1px solid var(--border);font-weight:800;flex-shrink:0}
+.icon-btn{width:40px;height:40px;border-radius:50%;background:var(--bg-light);border:0;display:flex;align-items:center;justify-content:center;color:var(--text-main)}
+.m-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px}
+.m-bottom{padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.g-row{display:flex;align-items:center;gap:12px;padding:10px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.03)}
+.g-thumb{width:72px;height:72px;border-radius:10px;object-fit:cover;border:1px solid var(--border);background:#e2e8f0}
+.g-info{flex:1;min-width:0}
+.status-tags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.status-badge{font-size:.65rem;padding:2px 6px;border-radius:4px;font-weight:bold}
+.badge-saved{background:#dcfce7;color:#166534}
+.badge-shared{background:#dbeafe;color:#1e40af}
+.badge-none{background:#f1f5f9;color:#64748b}
+.input-box{width:100%;height:48px;border:2px solid var(--border);border-radius:10px;padding:0 14px;font-size:16px;font-weight:700;outline:none;background:#fff;color:var(--text-main);user-select:text}
+.action-btn{height:48px;background:var(--text-main);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:1rem}
+.btn-light{background:#fff;color:var(--text-main);border:1.5px solid var(--border);font-weight:800;border-radius:8px}
+.type-btn{flex:1;height:44px;background:var(--bg-light);border:1.5px solid var(--border);border-radius:8px;font-weight:800;color:var(--text-main)}
+.type-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+#flashEffect{position:fixed;inset:0;background:#fff;z-index:9000;opacity:0;pointer-events:none;transition:opacity .1s}
+#toast{position:fixed;top:calc(60px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,255,255,.96);color:var(--text-main);padding:12px 20px;border-radius:30px;font-weight:800;display:none;white-space:pre-line;box-shadow:var(--shadow-md);text-align:center;max-width:90vw}
+.overlay-fullscreen{position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.card-dialog{background:#fff;padding:30px 20px;border-radius:20px;width:100%;max-width:320px;text-align:center;color:var(--text-main)}
+</style>
 </head>
+
 <body>
 
-<!-- 🔐 PIN認証オーバーレイ -->
 <div id="pinOverlay" class="overlay-fullscreen">
-  <div class="card-dialog">
-    <h2 style="color:var(--text-main); margin-bottom:10px;">現場カメラ セキュリティ</h2>
-    <p style="color:var(--text-sub); font-size:0.85rem; margin-bottom:20px; line-height:1.5;">権限保護のため、専用の<br>PINコードを入力してください</p>
-    <input type="password" id="pinInput" class="input-box" placeholder="PINコード" style="text-align:center; letter-spacing:8px; margin-bottom:15px; font-size:1.2rem;" inputmode="numeric">
-    <button class="action-btn" id="btnPinSubmit" style="width:100%; background:var(--primary);">認証してカメラを起動</button>
-    <div id="pinError" style="color:var(--primary); font-size:0.85rem; margin-top:12px; font-weight:bold; display:none;">PINコードが正しくありません</div>
-  </div>
+ <div class="card-dialog">
+  <h2 style="margin-bottom:10px">現場カメラ セキュリティ</h2>
+  <p style="color:#64748b;font-size:.85rem;margin-bottom:20px;line-height:1.5">権限保護のため、専用の<br>PINコードを入力してください</p>
+  <input type="password" id="pinInput" class="input-box" placeholder="PINコード" inputmode="numeric" autocomplete="off" style="text-align:center;letter-spacing:8px;margin-bottom:15px;font-size:1.2rem">
+  <button class="action-btn" id="btnPinSubmit" style="width:100%;background:var(--primary)">認証してカメラを起動</button>
+  <div id="pinError" style="color:var(--primary);font-size:.85rem;margin-top:12px;font-weight:bold;display:none">PINコードが正しくありません</div>
+ </div>
 </div>
 
-<!-- 🛡️ 権限ブロックオーバーレイ (不正防止) -->
-<div id="permissionOverlay" class="overlay-fullscreen" style="display:none; z-index:99998;">
-  <div class="card-dialog">
-    <h2 style="color:var(--text-main); margin-bottom:10px;">必須権限の確認</h2>
-    <p id="permissionMsg" style="color:var(--text-sub); font-size:0.85rem; margin-bottom:20px; line-height:1.5; white-space:pre-wrap; text-align:left;">カメラと位置情報の許可を確認しています...</p>
-    <button class="action-btn" id="btnRetryPermission" style="width:100%; background:var(--primary);">許可して再試行</button>
-  </div>
+<div id="permissionOverlay" class="overlay-fullscreen" style="display:none;z-index:99998">
+ <div class="card-dialog">
+  <h2 style="margin-bottom:10px">必須権限の確認</h2>
+  <p id="permissionMsg" style="color:#64748b;font-size:.85rem;margin-bottom:20px;line-height:1.5;white-space:pre-wrap;text-align:left">カメラと位置情報の許可を確認しています...</p>
+  <button class="action-btn" id="btnRetryPermission" style="width:100%;background:var(--primary)">許可して再試行</button>
+ </div>
 </div>
 
 <div id="flashEffect"></div>
 <div id="toast"></div>
 
 <div id="app">
-  <!-- 🪟 Header -->
-  <header class="header" id="mainHeader">
-    <div class="header-actions" id="mainActions">
-      <div style="display:flex; gap:6px;">
-        <button class="header-btn" onclick="showFullScreenHelp()">⛶ 全画面</button>
-        <label class="header-btn" style="padding:0 12px;">
-          📥 読込
-          <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
-        </label>
-      </div>
-      <button class="header-btn primary" id="btnGallery">一覧(<span id="gCount">0</span>)</button>
-    </div>
-
-    <div class="header-actions" id="editActions" style="display:none; justify-content:flex-end;">
-      <button class="header-btn" id="btnEditorClose" style="background:var(--bg-light); color:var(--text-main); border:1px solid var(--border);">
-        <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> 戻る
-      </button>
-    </div>
-  </header>
-
-  <!-- 📷 Main Content Area -->
-  <div id="mainContent">
-    
-    <!-- 🎛 反対側シャッター -->
-    <div class="alt-shutter-container">
-      <button class="shutter-circle-btn btn-action-sync" onclick="captureOrSave()">
-        <svg class="shutter-icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-      </button>
-    </div>
-
-    <div id="cameraArea">
-      <!-- 🔲 Viewfinder Container -->
-      <main id="cameraWrapper" onclick="event.stopPropagation()">
-        <video id="video" autoplay playsinline muted></video>
-        <img id="editorImg" src="">
-        
-        <!-- ★ 起動時ヒント -->
-        <div id="startupHint">スタンプは撮影後に追加できます。</div>
-
-        <div id="stampPreview" class="overlay-ui"></div>
-        
-        <div id="shapePreview">
-          <svg id="svgArrow" width="100" height="100" viewBox="-50 -50 100 100" style="display:none; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
-            <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#fff" stroke-width="6" stroke-linejoin="round" />
-            <path d="M-40,0 L15,0 M15,-15 L40,0 L15,15 Z" fill="#E11D48" stroke="#E11D48" stroke-width="3" stroke-linejoin="round" />
-          </svg>
-          <svg id="svgCircle" width="120" height="120" viewBox="-60 -60 120 120" style="display:none; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
-            <circle cx="0" cy="0" r="45" fill="none" stroke="#fff" stroke-width="12" />
-            <circle cx="0" cy="0" r="45" fill="none" stroke="#E11D48" stroke-width="6" />
-          </svg>
-        </div>
-      </main>
-    </div>
-
-    <!-- 🎛 Tools Panel -->
-    <section id="toolsPanel">
-      <div class="tools-grid">
-        <button class="tool-btn" data-stamp="作業前">作業前</button>
-        <button class="tool-btn" data-stamp="作業中">作業中</button>
-        <button class="tool-btn" data-stamp="作業後">作業後</button>
-        <button class="tool-btn" id="btnCustomStamp">その他</button>
-      </div>
-      <div class="tools-grid">
-        <button class="tool-btn" data-shape="arrow">➜ 矢印</button>
-        <button class="tool-btn" data-shape="circle">〇 円</button>
-        <button class="tool-btn" id="btnPosCycle" style="grid-column: span 2;" onclick="cycleStampPosition()">📍 位置: 左上</button>
-      </div>
-      <!-- メインシャッター -->
-      <div class="shutter-wrapper">
-        <button class="shutter-circle-btn btn-action-sync" onclick="captureOrSave()">
-          <svg class="shutter-icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-        </button>
-      </div>
-    </section>
+<header class="header" id="mainHeader">
+ <div class="header-actions" id="mainActions">
+  <div style="display:flex;gap:6px">
+   <button class="header-btn" id="btnFullscreen">⛶ 全画面</button>
+   <label class="header-btn" style="padding:0 12px">📥 読込
+    <input type="file" id="fileInput" accept="image/*" multiple hidden>
+   </label>
   </div>
+  <button class="header-btn primary" id="btnGallery">一覧(<span id="gCount">0</span>)</button>
+ </div>
+ <div class="header-actions" id="editActions" style="display:none;justify-content:flex-end">
+  <button class="header-btn" id="btnEditorClose" style="background:var(--bg-light);color:var(--text-main);border:1px solid var(--border)">✕ 戻る</button>
+ </div>
+</header>
+
+<div id="mainContent">
+ <div class="alt-shutter-container">
+  <button class="shutter-circle-btn btn-action-sync" aria-label="撮影または保存">
+   <svg class="shutter-icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+  </button>
+ </div>
+
+ <div id="cameraArea">
+  <main id="cameraWrapper">
+   <video id="video" autoplay playsinline muted></video>
+   <img id="editorImg" alt="編集対象">
+   <div id="startupHint">スタンプは撮影後にも追加できます</div>
+   <div id="stampPreview" class="overlay-ui"></div>
+   <div id="shapePreview">
+    <svg id="svgArrow" width="100" height="100" viewBox="-50 -50 100 100" style="display:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">
+     <path d="M-40 0 L15 0 M15 -15 L40 0 L15 15 Z" fill="#E11D48" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>
+     <path d="M-40 0 L15 0 M15 -15 L40 0 L15 15 Z" fill="#E11D48" stroke="#E11D48" stroke-width="3" stroke-linejoin="round"/>
+    </svg>
+    <svg id="svgCircle" width="120" height="120" viewBox="-60 -60 120 120" style="display:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">
+     <circle cx="0" cy="0" r="45" fill="none" stroke="#fff" stroke-width="12"/>
+     <circle cx="0" cy="0" r="45" fill="none" stroke="#E11D48" stroke-width="6"/>
+    </svg>
+   </div>
+  </main>
+ </div>
+
+ <section id="toolsPanel">
+  <div class="tools-grid">
+   <button class="tool-btn" data-stamp="作業前">作業前</button>
+   <button class="tool-btn" data-stamp="作業中">作業中</button>
+   <button class="tool-btn" data-stamp="作業後">作業後</button>
+   <button class="tool-btn" id="btnCustomStamp">その他</button>
+  </div>
+  <div class="tools-grid">
+   <button class="tool-btn" data-shape="arrow">➜ 矢印</button>
+   <button class="tool-btn" data-shape="circle">〇 円</button>
+   <button class="tool-btn" id="btnPosCycle" style="grid-column:span 2">📍 位置: 左上</button>
+  </div>
+  <div class="shutter-wrapper">
+   <button class="shutter-circle-btn btn-action-sync" aria-label="撮影または保存">
+    <svg class="shutter-icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+   </button>
+  </div>
+ </section>
+</div>
 </div>
 
-<!-- 📁 Gallery Modal -->
 <section id="modalGallery" class="modal">
-  <div class="m-card">
-    <div class="m-header">
-      <div>写真一覧（タップして編集）</div>
-      <button class="icon-btn" id="closeGallery"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-    </div>
-    <div style="padding:10px 16px; background:var(--bg-light); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-      <div style="font-size:0.9rem; font-weight:800;">選択中: <span id="selCount" style="color:var(--primary);">0</span> 枚</div>
-      <button class="btn-light" id="btnDelete" style="height:36px; padding:0 12px; color:var(--primary); border-color:#fca5a5; background:#fff1f2;">
-        🗑 削除
-      </button>
-    </div>
-    <div class="m-body" id="galleryList"></div>
-    <div class="m-bottom">
-      <div style="display:flex; gap:6px;">
-        <button class="btn-light" id="btnSelectAll" style="flex:1;">全選択</button>
-        <button class="btn-light" id="btnSaveToDevice" style="flex:1;">📥 保存</button>
-        <button class="action-btn" id="btnOpenSend" style="flex:1.5; margin-top:0; background:var(--primary);">✉ 送信</button>
-      </div>
-    </div>
+ <div class="m-card">
+  <div class="m-header"><div>写真一覧（タップして編集）</div><button class="icon-btn" id="closeGallery">✕</button></div>
+  <div style="padding:10px 16px;background:var(--bg-light);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+   <div style="font-size:.9rem;font-weight:800">選択中: <span id="selCount" style="color:var(--primary)">0</span> 枚</div>
+   <button class="btn-light" id="btnDelete" style="height:36px;padding:0 12px;color:var(--primary);border-color:#fca5a5;background:#fff1f2">🗑 削除</button>
   </div>
+  <div class="m-body" id="galleryList"></div>
+  <div class="m-bottom">
+   <div style="display:flex;gap:6px">
+    <button class="btn-light" id="btnSelectAll" style="flex:1;height:44px">全選択</button>
+    <button class="btn-light" id="btnSaveToDevice" style="flex:1;height:44px">📥 保存</button>
+    <button class="action-btn" id="btnOpenSend" style="flex:1.5;background:var(--primary)">✉ 送信</button>
+   </div>
+  </div>
+ </div>
 </section>
 
-<!-- ✉ Send/Share Settings Modal -->
 <section id="modalSend" class="modal">
-  <div class="m-card">
-    <div class="m-header">
-      <div>共有・送信</div>
-      <button class="icon-btn" id="closeSend"><svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+ <div class="m-card">
+  <div class="m-header"><div>共有・送信</div><button class="icon-btn" id="closeSend">✕</button></div>
+  <div class="m-body" style="display:flex;flex-direction:column;gap:16px">
+   <div>
+    <label style="font-size:.85rem;font-weight:800;color:var(--text-sub);display:block;margin-bottom:6px">写真の種別</label>
+    <div style="display:flex;gap:8px">
+     <button id="btnTypeRepair" class="type-btn active">修理写真</button>
+     <button id="btnTypeReplace" class="type-btn">買い替え現調</button>
     </div>
-    <div class="m-body" style="display:flex; flex-direction:column; gap:16px;">
-      
-      <div>
-        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">写真の種別（文面に記載）</label>
-        <div style="display:flex; gap:8px;">
-          <button id="btnTypeRepair" class="type-btn active" onclick="setSendType('修理写真')">修理写真</button>
-          <button id="btnTypeReplace" class="type-btn" onclick="setSendType('買い替え現調')">買い替え現調</button>
-        </div>
-      </div>
-
-      <div>
-        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">受付番号・件名</label>
-        <input id="sendJobNum" class="input-box" type="text" placeholder="例: 12345678">
-      </div>
-      <div>
-        <label style="font-size:0.85rem; font-weight:800; color:var(--text-sub); display:block; margin-bottom:6px;">デフォルト宛先(To)</label>
-        <input id="sendEmail" class="input-box" type="email" placeholder="example@mail.com">
-      </div>
-      <div style="font-size:0.8rem; color:var(--text-sub); line-height:1.5; background:var(--surface); padding:12px; border-radius:12px; border:1px solid var(--border);">
-        💡 送信時に宛先がコピーされ、各写真の撮影場所（Googleマップリンク）が本文に自動で挿入されます。<br>ファイルは自動で圧縮されます。
-      </div>
-    </div>
-    <div class="m-bottom">
-      <button class="action-btn" id="btnExecSend" style="background:var(--primary);">🚀 圧縮して共有メニューを開く</button>
-    </div>
+   </div>
+   <div><label style="font-size:.85rem;font-weight:800;color:var(--text-sub);display:block;margin-bottom:6px">受付番号・件名</label><input id="sendJobNum" class="input-box" type="text" placeholder="例: 12345678"></div>
+   <div><label style="font-size:.85rem;font-weight:800;color:var(--text-sub);display:block;margin-bottom:6px">デフォルト宛先(To)</label><input id="sendEmail" class="input-box" type="email" placeholder="example@mail.com"></div>
+   <div style="font-size:.8rem;color:var(--text-sub);line-height:1.5;background:#fff;padding:12px;border-radius:12px;border:1px solid var(--border)">💡 宛先をコピーし、撮影場所のGoogleマップリンクを本文に挿入します。写真は送信用に圧縮されます。</div>
   </div>
+  <div class="m-bottom"><button class="action-btn" id="btnExecSend" style="background:var(--primary)">🚀 圧縮して共有メニューを開く</button></div>
+ </div>
 </section>
 
-<!-- ✏️ Custom Stamp Modal -->
 <section id="modalStamp" class="modal">
-  <div class="m-card" style="margin-top:auto;">
-    <div class="m-header">
-      <div>スタンプ作成</div>
-      <button class="icon-btn" id="closeStamp"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
-    </div>
-    <div class="m-body">
-      <div style="display:flex; gap:8px; margin-bottom:20px;">
-        <input id="newStampText" class="input-box" type="text" placeholder="新しいテキスト">
-        <button class="action-btn" id="btnAddStamp" style="width:80px; height:48px; margin-top:0; background:var(--primary);">追加</button>
-      </div>
-      <div id="customStampList" style="display:flex; flex-direction:column; gap:8px;"></div>
-    </div>
+ <div class="m-card" style="margin-top:auto">
+  <div class="m-header"><div>スタンプ作成</div><button class="icon-btn" id="closeStamp">✕</button></div>
+  <div class="m-body">
+   <div style="display:flex;gap:8px;margin-bottom:20px">
+    <input id="newStampText" class="input-box" type="text" placeholder="新しいテキスト">
+    <button class="action-btn" id="btnAddStamp" style="width:80px;background:var(--primary)">追加</button>
+   </div>
+   <div id="customStampList" style="display:flex;flex-direction:column;gap:8px"></div>
   </div>
+ </div>
 </section>
 
 <script>
-let db, photos = [];
-let stream, cameraStarted = false;
-let editMode = false, editTargetId = null;
+"use strict";
 
-let currentStamp = null;
-const positions = ["top-left", "top-right", "bottom-left", "bottom-right"];
-const positionLabels = { "top-left": "左上", "top-right": "右上", "bottom-left": "左下", "bottom-right": "右下" };
-let stampPosIndex = 0;
+const $ = id => document.getElementById(id);
+const positions = ["top-left","top-right","bottom-left","bottom-right"];
+const positionLabels = {"top-left":"左上","top-right":"右上","bottom-left":"左下","bottom-right":"右下"};
 
-let activeShape = null; 
-let shapePos = null;
-let shapeScale = 1.0;
-let shapeAngle = 0; 
+let db, photos=[];
+let stream=null, gpsWatchId=null, deviceCoords=null;
+let editMode=false, editTargetId=null;
+let currentStamp=null, stampPosIndex=0;
+let activeShape=null, shapePos=null, shapeScale=1, shapeAngle=0;
+let interactionMode=null, initAngle=0, initialShapeAngle=0, initDist=0, initScale=1;
+let sendSelectedType="修理写真", customStamps=[];
+let toastTimer=null, editorObjectURL=null, galleryURLs=[];
+let saving=false;
 
-let interactionMode = null; 
-let initAngle = 0;
-let initialShapeAngle = 0;
-let initDist = 0;
-let initScale = 1.0;
+const cvs=document.createElement("canvas");
+const ctx=cvs.getContext("2d",{alpha:false});
+const video=$("video"), editorImg=$("editorImg"), cameraWrapper=$("cameraWrapper");
+const shapePreview=$("shapePreview");
 
-let deviceCoords = null;
-let sendSelectedType = "修理写真";
+function requestFrame(){return new Promise(resolve=>requestAnimationFrame(resolve));}
 
-const cvs = document.createElement("canvas");
-const ctx = cvs.getContext("2d");
-const video = document.getElementById("video");
-const editorImg = document.getElementById("editorImg");
-const cameraWrapper = document.getElementById("cameraWrapper");
-const shapePreview = document.getElementById("shapePreview");
+function dbRequest(store,method,value){
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction("photos","readwrite");
+  const req=value===undefined?tx.objectStore("photos")[method]():tx.objectStore("photos")[method](value);
+  req.onsuccess=()=>resolve(req.result);
+  req.onerror=()=>reject(req.error);
+ });
+}
 
-/* =======================================
-   1. セキュリティ (PIN) & 権限ブロック
-======================================= */
-window.onload = () => {
-  if (localStorage.getItem("authorized_pin") === APP_PIN_CODE) {
-    document.getElementById("pinOverlay").style.display = "none";
-    initAppWithPermission();
-  } else {
-    document.getElementById("app").style.filter = "blur(10px)";
-  }
+function dbPut(item){return dbRequest("photos","put",item);}
+function dbDelete(id){return dbRequest("photos","delete",id);}
+
+function initDB(){
+ return new Promise((resolve,reject)=>{
+  const req=indexedDB.open("FieldCameraProDB_v11",1);
+  req.onupgradeneeded=e=>{
+   if(!e.target.result.objectStoreNames.contains("photos"))
+    e.target.result.createObjectStore("photos",{keyPath:"id"});
+  };
+  req.onsuccess=async e=>{
+   db=e.target.result;
+   db.onversionchange=()=>db.close();
+   try{
+    photos=(await new Promise((r,j)=>{
+     const q=db.transaction("photos").objectStore("photos").getAll();
+     q.onsuccess=()=>r(q.result);
+     q.onerror=()=>j(q.error);
+    })).sort((a,b)=>b.id-a.id);
+    resolve();
+   }catch(err){reject(err);}
+  };
+  req.onerror=()=>reject(req.error);
+ });
+}
+
+window.addEventListener("load",async()=>{
+ if(localStorage.getItem("authorized_pin")===APP_PIN_CODE){
+  $("pinOverlay").style.display="none";
+  await initApp();
+ }else $("app").style.filter="blur(10px)";
+});
+
+$("btnPinSubmit").onclick=async()=>{
+ if($("pinInput").value.trim()===APP_PIN_CODE){
+  localStorage.setItem("authorized_pin",APP_PIN_CODE);
+  $("pinOverlay").style.display="none";
+  $("app").style.filter="none";
+  await initApp();
+ }else $("pinError").style.display="block";
 };
 
-document.getElementById("btnPinSubmit").onclick = () => {
-  const input = document.getElementById("pinInput").value.trim();
-  if (input === APP_PIN_CODE) {
-    localStorage.setItem("authorized_pin", APP_PIN_CODE);
-    document.getElementById("pinOverlay").style.opacity = "0";
-    document.getElementById("app").style.filter = "blur(0px)";
-    setTimeout(() => {
-      document.getElementById("pinOverlay").style.display = "none";
-      initAppWithPermission(); 
-    }, 300);
-  } else {
-    document.getElementById("pinError").style.display = "block";
-  }
-};
+$("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("btnPinSubmit").click();});
 
-async function initAppWithPermission() {
+async function initApp(){
+ try{
   await initDB();
   loadSettings();
   setupEvents();
   updateUI();
-  
   await requestPermissions();
+ }catch(e){toast("初期化に失敗しました");console.error(e);}
 }
 
-document.getElementById("btnRetryPermission").onclick = () => {
-  requestPermissions();
-};
+async function requestPermissions(){
+ const overlay=$("permissionOverlay"),msg=$("permissionMsg");
+ overlay.style.display="flex";
+ msg.textContent="カメラと位置情報の許可を確認しています...";
+ let camOk=false,gpsOk=false,errors=[];
 
-/* ★ カメラとGPSの権限を要求し、両方OKになるまでアプリをブロック */
-async function requestPermissions() {
-  const permOverlay = document.getElementById("permissionOverlay");
-  const msgEl = document.getElementById("permissionMsg");
-  permOverlay.style.display = "flex";
-  msgEl.innerText = "カメラと位置情報の許可を確認しています...";
-
-  let camOk = false;
-  let gpsOk = false;
-
-  const camPromise = navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
-  }).then(s => { stream = s; camOk = true; }).catch(() => 
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(s => { stream = s; camOk = true; })
-      .catch(() => { camOk = false; })
-  );
-
-  const gpsPromise = new Promise(resolve => {
-    if(!navigator.geolocation) { resolve(false); return; }
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        deviceCoords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
-        navigator.geolocation.watchPosition(wPos => {
-          deviceCoords = {lat: wPos.coords.latitude, lng: wPos.coords.longitude};
-        }, () => {}, {enableHighAccuracy: true});
-        resolve(true);
-      },
-      err => { resolve(false); },
-      {enableHighAccuracy: true, timeout: 10000}
-    );
-  }).then(res => { gpsOk = res; });
-
-  await Promise.all([camPromise, gpsPromise]);
-
-  if (camOk && gpsOk) {
-    permOverlay.style.display = "none";
-    video.srcObject = stream;
-    await video.play();
-    cameraStarted = true;
-    
-    if(!editMode && video.videoWidth && video.videoHeight) {
-      cameraWrapper.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
-    }
-
-    // 起動時ヒントの表示
-    const hint = document.getElementById("startupHint");
-    hint.style.opacity = "1";
-    setTimeout(() => { hint.style.opacity = "0"; }, 2500);
-
-  } else {
-    // 権限が拒否された場合はブロック画面を出し続ける
-    let errStr = "不正利用防止のため、以下の権限が【必須】です：\n\n";
-    if (!camOk) errStr += "❌ カメラへのアクセス\n";
-    if (!gpsOk) errStr += "❌ 位置情報（GPS）の取得\n";
-    errStr += "\n端末やブラウザの設定で許可を「オン」にしてから、再試行してください。\n※設定を変更した場合はページのリロードが必要な場合があります。";
-    msgEl.innerText = errStr;
+ try{
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error("このブラウザではカメラを使用できません。HTTPSで開いてください。");
+  try{
+   stream=await navigator.mediaDevices.getUserMedia({
+    audio:false,
+    video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}}
+   });
+  }catch(e){
+   stream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
   }
+  camOk=true;
+ }catch(e){errors.push("カメラ: "+e.message);}
+
+ try{
+  if(!navigator.geolocation)throw new Error("位置情報に対応していません");
+  const pos=await new Promise((resolve,reject)=>{
+   navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:10000});
+  });
+  deviceCoords={lat:pos.coords.latitude,lng:pos.coords.longitude};
+  gpsOk=true;
+  if(gpsWatchId!==null)navigator.geolocation.clearWatch(gpsWatchId);
+  gpsWatchId=navigator.geolocation.watchPosition(p=>{
+   deviceCoords={lat:p.coords.latitude,lng:p.coords.longitude};
+  },()=>{},{enableHighAccuracy:true,maximumAge:10000});
+ }catch(e){errors.push("位置情報: "+(e.message||"取得できません"));}
+
+ if(camOk){
+  video.srcObject=stream;
+  try{await video.play();}catch(e){}
+  cameraStarted=true;
+  setCameraAspect();
+ }
+ if(camOk&&gpsOk){
+  overlay.style.display="none";
+  const hint=$("startupHint");
+  hint.style.opacity="1";
+  setTimeout(()=>hint.style.opacity="0",2500);
+ }else{
+  msg.textContent="カメラと位置情報の両方が必要です。\n\n"+errors.join("\n")+"\n\nSafariの設定で許可を確認し、再試行してください。";
+ }
 }
 
-function initDB() {
-  return new Promise(res => {
-    const req = indexedDB.open("FieldCameraProDB_v11", 1);
-    req.onupgradeneeded = e => { if(!e.target.result.objectStoreNames.contains("photos")) e.target.result.createObjectStore("photos", {keyPath:"id"}); };
-    req.onsuccess = e => {
-      db = e.target.result;
-      db.transaction("photos").objectStore("photos").getAll().onsuccess = ev => {
-        photos = ev.target.result.sort((a,b)=>b.id-a.id);
-        document.getElementById("gCount").textContent = photos.length;
-        res();
-      };
-    };
-  });
+$("btnRetryPermission").onclick=requestPermissions;
+
+function setCameraAspect(){
+ if(!editMode&&video.videoWidth&&video.videoHeight)
+  cameraWrapper.style.aspectRatio=video.videoWidth+"/"+video.videoHeight;
 }
 
-function setupEvents() {
-  document.querySelectorAll("[data-stamp]").forEach(b => b.onclick = () => {
-    currentStamp = currentStamp === b.dataset.stamp ? null : b.dataset.stamp; 
-    updateUI();
-  });
-  
-  document.querySelectorAll("[data-shape]").forEach(b => b.onclick = () => {
-    activeShape = activeShape === b.dataset.shape ? null : b.dataset.shape;
-    if(activeShape) {
-      if(!shapePos) toast("画面をタップして配置してください");
-      shapeAngle = 0; shapeScale = 1.0;
-    }
-    if(!activeShape) shapePos = null;
-    updateUI();
-  });
-
-  setupGestures();
-
-  document.getElementById("fileInput").onchange = handleImport;
-  document.getElementById("btnGallery").onclick = () => { renderGallery(); openM('modalGallery'); };
-  document.getElementById("closeGallery").onclick = () => closeM('modalGallery');
-  document.getElementById("btnEditorClose").onclick = closeEditor;
-
-  document.getElementById("btnSelectAll").onclick = () => {
-    const chk = photos.some(p => !p.selected);
-    photos.forEach(p => p.selected = chk); 
-    renderGallery();
-  };
-  
-  document.getElementById("btnDelete").onclick = () => {
-    const sel = photos.filter(p => p.selected);
-    if(sel.length && confirm(`${sel.length}枚削除しますか？`)) {
-      sel.forEach(p => db.transaction("photos","readwrite").objectStore("photos").delete(p.id));
-      photos = photos.filter(p => !p.selected); 
-      renderGallery();
-      updateUI();
-    }
-  };
-  
-  // 写真アプリへの保存フロー
-  document.getElementById("btnSaveToDevice").onclick = async () => {
-    const sel = photos.filter(p => p.selected);
-    if(!sel.length) return toast("写真を選択してください");
-    
-    if(confirm(`${sel.length}枚の画像を端末に保存しますか？\n\n※開いたメニューから「画像を保存」を選んでください。`)) {
-      const files = await Promise.all(sel.map(async (p, i) => new File([await p.blob.arrayBuffer()], `現場写真_${Date.now()}_${i}.jpg`, {type:"image/jpeg"})));
-      if(navigator.canShare && navigator.canShare({files})) {
-        try {
-          await navigator.share({files});
-          sel.forEach(p => {
-            p.saved = true;
-            db.transaction("photos","readwrite").objectStore("photos").put(p);
-          });
-          renderGallery();
-        } catch(e) {}
-      } else {
-        sel.forEach(p => {
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(p.blob);
-          a.download = `現場写真_${Date.now()}.jpg`;
-          a.click();
-          p.saved = true;
-          db.transaction("photos","readwrite").objectStore("photos").put(p);
-        });
-        renderGallery();
-      }
-    }
-  };
-  
-  document.getElementById("btnOpenSend").onclick = () => {
-    if(!photos.some(p => p.selected)) return toast("写真を選択してください");
-    openM('modalSend');
-  };
-  document.getElementById("closeSend").onclick = () => closeM('modalSend');
-  document.getElementById("btnExecSend").onclick = executeShare;
-
-  document.getElementById("btnCustomStamp").onclick = () => { renderCustomStamps(); openM('modalStamp'); };
-  document.getElementById("closeStamp").onclick = () => closeM('modalStamp');
-  document.getElementById("btnAddStamp").onclick = addCustomStamp;
-
-  window.addEventListener('resize', () => {
-    if(!editMode && video.videoWidth && video.videoHeight) {
-      cameraWrapper.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
-    }
-  });
-}
-
-function setSendType(type) {
-  sendSelectedType = type;
-  document.getElementById("btnTypeRepair").classList.toggle("active", type === '修理写真');
-  document.getElementById("btnTypeReplace").classList.toggle("active", type === '買い替え現調');
-}
-
-function cycleStampPosition() {
-  stampPosIndex = (stampPosIndex + 1) % positions.length;
+function setupEvents(){
+ document.querySelectorAll("[data-stamp]").forEach(b=>b.onclick=()=>{
+  currentStamp=currentStamp===b.dataset.stamp?null:b.dataset.stamp;
   updateUI();
+ });
+ document.querySelectorAll("[data-shape]").forEach(b=>b.onclick=()=>{
+  activeShape=activeShape===b.dataset.shape?null:b.dataset.shape;
+  if(activeShape){shapeAngle=0;shapeScale=1;if(!shapePos)toast("画面をタップして配置してください");}
+  else shapePos=null;
+  updateUI();
+ });
+
+ setupGestures();
+
+ $("fileInput").onchange=handleImport;
+ $("btnGallery").onclick=()=>{renderGallery();openM("modalGallery");};
+ $("closeGallery").onclick=()=>closeM("modalGallery");
+ $("btnEditorClose").onclick=closeEditor;
+ $("btnFullscreen").onclick=showFullScreenHelp;
+ document.querySelectorAll(".btn-action-sync").forEach(b=>b.onclick=captureOrSave);
+ $("btnPosCycle").onclick=cycleStampPosition;
+
+ $("btnSelectAll").onclick=()=>{
+  const value=photos.some(p=>!p.selected);
+  photos.forEach(p=>p.selected=value);
+  renderGallery();
+ };
+
+ $("btnDelete").onclick=async()=>{
+  const sel=photos.filter(p=>p.selected);
+  if(!sel.length)return toast("写真を選択してください");
+  if(!confirm(`${sel.length}枚削除しますか？`))return;
+  try{
+   await Promise.all(sel.map(p=>dbDelete(p.id)));
+   photos=photos.filter(p=>!p.selected);
+   renderGallery();updateUI();
+  }catch(e){toast("削除に失敗しました");}
+ };
+
+ $("btnSaveToDevice").onclick=saveSelectedToDevice;
+ $("btnOpenSend").onclick=()=>{
+  if(!photos.some(p=>p.selected))return toast("写真を選択してください");
+  openM("modalSend");
+ };
+ $("closeSend").onclick=()=>closeM("modalSend");
+ $("btnExecSend").onclick=executeShare;
+ $("btnTypeRepair").onclick=()=>setSendType("修理写真");
+ $("btnTypeReplace").onclick=()=>setSendType("買い替え現調");
+ $("btnCustomStamp").onclick=()=>{renderCustomStamps();openM("modalStamp");};
+ $("closeStamp").onclick=()=>closeM("modalStamp");
+ $("btnAddStamp").onclick=addCustomStamp;
+ $("newStampText").addEventListener("keydown",e=>{if(e.key==="Enter")addCustomStamp();});
+ window.addEventListener("resize",setCameraAspect);
 }
 
-function updateUI() {
-  document.querySelectorAll("[data-stamp]").forEach(b => b.classList.toggle("active", b.dataset.stamp === currentStamp));
-  document.querySelectorAll("[data-shape]").forEach(b => b.classList.toggle("active", b.dataset.shape === activeShape));
-  
-  const currentPosKey = positions[stampPosIndex];
-  const posBtn = document.getElementById("btnPosCycle");
-  if(posBtn) {
-    posBtn.textContent = `📍 位置: ${positionLabels[currentPosKey]}`;
-    posBtn.classList.add("active");
+function setSendType(type){
+ sendSelectedType=type;
+ $("btnTypeRepair").classList.toggle("active",type==="修理写真");
+ $("btnTypeReplace").classList.toggle("active",type==="買い替え現調");
+}
+
+function cycleStampPosition(){
+ stampPosIndex=(stampPosIndex+1)%positions.length;
+ updateUI();
+}
+
+function updateUI(){
+ document.querySelectorAll("[data-stamp]").forEach(b=>b.classList.toggle("active",b.dataset.stamp===currentStamp));
+ document.querySelectorAll("[data-shape]").forEach(b=>b.classList.toggle("active",b.dataset.shape===activeShape));
+ $("btnPosCycle").textContent="📍 位置: "+positionLabels[positions[stampPosIndex]];
+
+ const sp=$("stampPreview");
+ if(currentStamp){
+  sp.style.display="block";sp.textContent=currentStamp;
+  sp.style.top=sp.style.bottom=sp.style.left=sp.style.right="auto";
+  const pos=positions[stampPosIndex];
+  if(pos.includes("top"))sp.style.top="12px";else sp.style.bottom="12px";
+  if(pos.includes("left"))sp.style.left="12px";else sp.style.right="12px";
+ }else sp.style.display="none";
+
+ if(activeShape&&shapePos){
+  shapePreview.style.display="block";
+  shapePreview.style.left=shapePos.x+"px";
+  shapePreview.style.top=shapePos.y+"px";
+  shapePreview.style.transform=`translate(-50%,-50%) rotate(${shapeAngle}rad) scale(${shapeScale})`;
+  $("svgArrow").style.display=activeShape==="arrow"?"block":"none";
+  $("svgCircle").style.display=activeShape==="circle"?"block":"none";
+ }else shapePreview.style.display="none";
+
+ $("gCount").textContent=photos.length;
+}
+
+function syncActionButtons(isEdit){
+ document.querySelectorAll(".shutter-circle-btn").forEach(b=>b.classList.toggle("edit-save",isEdit));
+}
+
+function showFullScreenHelp(){
+ toast("Safariの共有ボタンから「ホーム画面に追加」を選ぶと、アプリのように使用できます");
+}
+
+function setupGestures(){
+ const pointers=new Map();
+
+ cameraWrapper.addEventListener("pointerdown",e=>{
+  if(!activeShape)return;
+  e.preventDefault();
+  cameraWrapper.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  const r=cameraWrapper.getBoundingClientRect();
+  const pt={x:e.clientX-r.left,y:e.clientY-r.top};
+
+  if(pointers.size===1){
+   if(!shapePos){shapePos=pt;interactionMode="move";}
+   else{
+    const d=Math.hypot(pt.x-shapePos.x,pt.y-shapePos.y);
+    if(d<Math.max(45,55*shapeScale))interactionMode="move";
+    else if(activeShape==="arrow"){
+     interactionMode="rotate";
+     initAngle=Math.atan2(pt.y-shapePos.y,pt.x-shapePos.x);
+     initialShapeAngle=shapeAngle;
+    }else{
+     interactionMode="scale";
+     initDist=Math.max(1,d);initScale=shapeScale;
+    }
+   }
+  }else if(pointers.size===2&&activeShape==="arrow"){
+   interactionMode="pinch";
+   const a=[...pointers.values()];
+   initDist=Math.max(1,Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y));
+   initScale=shapeScale;
   }
-  
-  const sp = document.getElementById("stampPreview");
-  if(currentStamp) {
-    sp.style.display = "block"; 
-    sp.textContent = currentStamp;
-    sp.style.top = "auto"; sp.style.bottom = "auto"; sp.style.left = "auto"; sp.style.right = "auto";
-    
-    if(currentPosKey === "top-left") { sp.style.top="12px"; sp.style.left="12px"; }
-    else if(currentPosKey === "top-right") { sp.style.top="12px"; sp.style.right="12px"; }
-    else if(currentPosKey === "bottom-left") { sp.style.bottom="12px"; sp.style.left="12px"; }
-    else if(currentPosKey === "bottom-right") { sp.style.bottom="12px"; sp.style.right="12px"; }
-  } else {
-    sp.style.display = "none";
+  updateUI();
+ });
+
+ cameraWrapper.addEventListener("pointermove",e=>{
+  if(!activeShape||!pointers.has(e.pointerId))return;
+  e.preventDefault();
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  const r=cameraWrapper.getBoundingClientRect();
+  const a=[...pointers.values()];
+
+  if(a.length===1){
+   const pt={x:a[0].x-r.left,y:a[0].y-r.top};
+   if(interactionMode==="move"){
+    shapePos={x:Math.max(0,Math.min(r.width,pt.x)),y:Math.max(0,Math.min(r.height,pt.y))};
+   }else if(interactionMode==="rotate"){
+    shapeAngle=initialShapeAngle+Math.atan2(pt.y-shapePos.y,pt.x-shapePos.x)-initAngle;
+   }else if(interactionMode==="scale"){
+    const d=Math.hypot(pt.x-shapePos.x,pt.y-shapePos.y);
+    shapeScale=Math.max(.2,Math.min(5,initScale*d/initDist));
+   }
+  }else if(a.length===2&&interactionMode==="pinch"){
+   const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
+   shapeScale=Math.max(.4,Math.min(5,initScale*d/initDist));
   }
+  updateUI();
+ });
 
-  if(activeShape && shapePos) {
-    shapePreview.style.display = "block";
-    shapePreview.style.left = shapePos.x + "px"; 
-    shapePreview.style.top = shapePos.y + "px";
-    shapePreview.style.transform = `translate(-50%, -50%) rotate(${shapeAngle}rad) scale(${shapeScale})`;
-    document.getElementById("svgArrow").style.display = activeShape === 'arrow' ? "block" : "none";
-    document.getElementById("svgCircle").style.display = activeShape === 'circle' ? "block" : "none";
-  } else {
-    shapePreview.style.display = "none";
+ const up=e=>{
+  pointers.delete(e.pointerId);
+  if(!pointers.size)interactionMode=null;
+ };
+ ["pointerup","pointercancel","lostpointercapture"].forEach(type=>cameraWrapper.addEventListener(type,up));
+}
+
+/* EXIF */
+
+function degToDmsRational(v){
+ const d=Math.floor(v),mFloat=(v-d)*60,m=Math.floor(mFloat);
+ return [[d,1],[m,1],[Math.round((mFloat-m)*60*100),100]];
+}
+
+function getExifData(dataUrl){
+ let coords=null,createdDate=null;
+ try{
+  if(typeof piexif==="undefined")return {coords,createdDate};
+  const ex=piexif.load(dataUrl),g=ex.GPS||{};
+  const lat=g[piexif.GPSIFD.GPSLatitude],lng=g[piexif.GPSIFD.GPSLongitude];
+  if(lat&&lng){
+   const val=a=>a[0][0]/a[0][1]+a[1][0]/a[1][1]/60+a[2][0]/a[2][1]/3600;
+   coords={lat:val(lat)*(g[piexif.GPSIFD.GPSLatitudeRef]==="S"?-1:1),lng:val(lng)*(g[piexif.GPSIFD.GPSLongitudeRef]==="W"?-1:1)};
   }
-  document.getElementById("gCount").textContent = photos.length;
-}
-
-function syncActionButtons(isEdit) {
-  document.querySelectorAll(".shutter-circle-btn").forEach(btn => {
-    if(isEdit) btn.classList.add("edit-save");
-    else btn.classList.remove("edit-save");
-  });
-}
-
-function showFullScreenHelp() {
-  toast("Safari下部の [共有ボタン] から<br>『ホーム画面に追加』を押すと<br>URLバーが消えて全画面アプリになります");
-}
-
-function setupGestures() {
-  let ptrs = []; 
-  
-  cameraWrapper.addEventListener('pointerdown', e => {
-    if(!activeShape) return;
-    e.preventDefault(); 
-    ptrs.push(e);
-    
-    const r = cameraWrapper.getBoundingClientRect();
-    const pt = { x: e.clientX - r.left, y: e.clientY - r.top };
-
-    if(ptrs.length === 1) {
-      if(!shapePos) {
-        shapePos = pt;
-        interactionMode = 'move';
-      } else {
-        const dist = Math.hypot(pt.x - shapePos.x, pt.y - shapePos.y);
-        const hitRadius = 50 * shapeScale;
-
-        if (dist <= Math.max(40, hitRadius * 0.8)) {
-          interactionMode = 'move';
-        } else {
-          if (activeShape === 'arrow') {
-            interactionMode = 'rotate';
-            initAngle = Math.atan2(pt.y - shapePos.y, pt.x - shapePos.x);
-            initialShapeAngle = shapeAngle;
-          } else if (activeShape === 'circle') {
-            interactionMode = 'scale';
-            initDist = dist;
-            initScale = shapeScale;
-          }
-        }
-      }
-    } else if (ptrs.length === 2 && activeShape === 'arrow') {
-      interactionMode = 'pinch';
-      initDist = Math.hypot(ptrs[0].clientX - ptrs[1].clientX, ptrs[0].clientY - ptrs[1].clientY);
-      initScale = shapeScale;
-    }
-    updateUI();
-  });
-  
-  cameraWrapper.addEventListener('pointermove', e => {
-    if(!activeShape || ptrs.length === 0) return;
-    e.preventDefault();
-    const idx = ptrs.findIndex(p => p.pointerId === e.pointerId); 
-    if(idx >= 0) ptrs[idx] = e;
-    
-    const r = cameraWrapper.getBoundingClientRect();
-
-    if(ptrs.length === 1) { 
-      const pt = { x: ptrs[0].clientX - r.left, y: ptrs[0].clientY - r.top };
-      
-      if (interactionMode === 'move') {
-        shapePos = { x: Math.max(0, Math.min(r.width, pt.x)), y: Math.max(0, Math.min(r.height, pt.y)) }; 
-      } else if (interactionMode === 'rotate' && activeShape === 'arrow') {
-        const currentAngle = Math.atan2(pt.y - shapePos.y, pt.x - shapePos.x);
-        shapeAngle = initialShapeAngle + (currentAngle - initAngle);
-      } else if (interactionMode === 'scale' && activeShape === 'circle') {
-        const currentDist = Math.hypot(pt.x - shapePos.x, pt.y - shapePos.y);
-        shapeScale = Math.max(0.2, Math.min(initScale * (currentDist / initDist), 5.0));
-      }
-    } else if (ptrs.length === 2 && interactionMode === 'pinch' && activeShape === 'arrow') {
-      const currentDist = Math.hypot(ptrs[0].clientX - ptrs[1].clientX, ptrs[0].clientY - ptrs[1].clientY);
-      shapeScale = Math.max(0.4, Math.min(initScale * (currentDist / initDist), 5.0));
-    }
-    updateUI();
-  });
-  
-  const up = e => { 
-    ptrs = ptrs.filter(p => p.pointerId !== e.pointerId); 
-    if(ptrs.length === 0) interactionMode = null; 
-  };
-  cameraWrapper.addEventListener('pointerup', up); 
-  cameraWrapper.addEventListener('pointercancel', up);
-  cameraWrapper.addEventListener('pointerout', up);
-}
-
-/* =======================================
-   4. Exif 抽出 & 書き込みロジック
-======================================= */
-function degToDmsRational(degFloat) {
-  const deg = Math.floor(degFloat);
-  const minFloat = (degFloat - deg) * 60;
-  const min = Math.floor(minFloat);
-  const secFloat = (minFloat - min) * 60;
-  const sec = Math.round(secFloat * 100);
-  return [[deg, 1], [min, 1], [sec, 100]];
-}
-
-function getExifData(dataUrl) {
-  let coords = null;
-  let createdDate = null;
-  try {
-    const exif = piexif.load(dataUrl);
-    if (exif["GPS"] && exif["GPS"][piexif.GPSIFD.GPSLatitude] && exif["GPS"][piexif.GPSIFD.GPSLongitude]) {
-      const latArr = exif["GPS"][piexif.GPSIFD.GPSLatitude];
-      const latRef = exif["GPS"][piexif.GPSIFD.GPSLatitudeRef] || 'N';
-      const lngArr = exif["GPS"][piexif.GPSIFD.GPSLongitude];
-      const lngRef = exif["GPS"][piexif.GPSIFD.GPSLongitudeRef] || 'E';
-      
-      const lat = (latArr[0][0]/latArr[0][1]) + (latArr[1][0]/latArr[1][1])/60 + (latArr[2][0]/latArr[2][1])/3600;
-      const lng = (lngArr[0][0]/lngArr[0][1]) + (lngArr[1][0]/lngArr[1][1])/60 + (lngArr[2][0]/lngArr[2][1])/3600;
-      coords = { lat: latRef === 'S' ? -lat : lat, lng: lngRef === 'W' ? -lng : lng };
-    }
-    
-    const dt = exif["Exif"][piexif.ExifIFD.DateTimeOriginal] || exif["0th"][piexif.ImageIFD.DateTime];
-    if (dt && typeof dt === 'string') {
-      const parts = dt.split(/[: ]/);
-      if (parts.length === 6) {
-        createdDate = new Date(parts[0], parts[1]-1, parts[2], parts[3], parts[4], parts[5]);
-      }
-    }
-  } catch(e) { }
-  return { coords, createdDate };
-}
-
-async function generateExifBlob(canvas, quality, dateObj, coords) {
-  const dataUrl = canvas.toDataURL("image/jpeg", quality);
-  if (typeof piexif === 'undefined') return new Promise(r => canvas.toBlob(r, "image/jpeg", quality));
-
-  try {
-    const pad = n => String(n).padStart(2, "0");
-    const dateStr = `${dateObj.getFullYear()}:${pad(dateObj.getMonth()+1)}:${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
-    
-    let exifObj = { "0th": {}, "Exif": {}, "GPS": {} };
-    exifObj["Exif"][piexif.ExifIFD.DateTimeOriginal] = dateStr;
-    exifObj["0th"][piexif.ImageIFD.DateTime] = dateStr;
-
-    if (coords) {
-      exifObj["GPS"][piexif.GPSIFD.GPSLatitudeRef] = coords.lat < 0 ? 'S' : 'N';
-      exifObj["GPS"][piexif.GPSIFD.GPSLatitude] = degToDmsRational(Math.abs(coords.lat));
-      exifObj["GPS"][piexif.GPSIFD.GPSLongitudeRef] = coords.lng < 0 ? 'W' : 'E';
-      exifObj["GPS"][piexif.GPSIFD.GPSLongitude] = degToDmsRational(Math.abs(coords.lng));
-    }
-    
-    const exifStr = piexif.dump(exifObj);
-    const insertedStr = piexif.insert(exifStr, dataUrl);
-    
-    const arr = insertedStr.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while(n--) { u8arr[n] = bstr.charCodeAt(n); }
-    return new Blob([u8arr], {type: mime});
-  } catch(e) {
-    return new Promise(r => canvas.toBlob(r, "image/jpeg", quality));
+  const dt=(ex.Exif||{})[piexif.ExifIFD.DateTimeOriginal]||(ex["0th"]||{})[piexif.ImageIFD.DateTime];
+  if(typeof dt==="string"){
+   const a=dt.split(/[: ]/).map(Number);
+   if(a.length===6)createdDate=new Date(a[0],a[1]-1,a[2],a[3],a[4],a[5]);
   }
+ }catch(e){}
+ return {coords,createdDate};
 }
 
-async function handleImport(e) {
-  const files = Array.from(e.target.files); 
-  if(!files.length) return;
-  toast(`画像を読み込んでいます...`);
-  
-  for(let i=0; i<files.length; i++) {
-    const file = files[i];
-    
-    const dataUrl = await new Promise(r => {
-      const reader = new FileReader();
-      reader.onload = ev => r(ev.target.result);
-      reader.readAsDataURL(file);
+function canvasBlob(canvas,quality){
+ return new Promise((resolve,reject)=>{
+  canvas.toBlob(b=>b?resolve(b):reject(new Error("画像変換に失敗しました")),"image/jpeg",quality);
+ });
+}
+
+async function generateExifBlob(canvas,quality,dateObj,coords){
+ const raw=await canvasBlob(canvas,quality);
+ if(typeof piexif==="undefined")return raw;
+ try{
+  const dataUrl=canvas.toDataURL("image/jpeg",quality);
+  const pad=n=>String(n).padStart(2,"0");
+  const dateStr=`${dateObj.getFullYear()}:${pad(dateObj.getMonth()+1)}:${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
+  const ex={"0th":{},"Exif":{},"GPS":{}};
+  ex.Exif[piexif.ExifIFD.DateTimeOriginal]=dateStr;
+  ex["0th"][piexif.ImageIFD.DateTime]=dateStr;
+  if(coords){
+   ex.GPS[piexif.GPSIFD.GPSLatitudeRef]=coords.lat<0?"S":"N";
+   ex.GPS[piexif.GPSIFD.GPSLatitude]=degToDmsRational(Math.abs(coords.lat));
+   ex.GPS[piexif.GPSIFD.GPSLongitudeRef]=coords.lng<0?"W":"E";
+   ex.GPS[piexif.GPSIFD.GPSLongitude]=degToDmsRational(Math.abs(coords.lng));
+  }
+  const inserted=piexif.insert(piexif.dump(ex),dataUrl);
+  const bin=atob(inserted.split(",")[1]);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes],{type:"image/jpeg"});
+ }catch(e){return raw;}
+}
+
+/* Import */
+
+async function handleImport(e){
+ const files=Array.from(e.target.files||[]).filter(f=>f.type.startsWith("image/"));
+ if(!files.length)return;
+ toast("画像を読み込んでいます...");
+ try{
+  for(let i=0;i<files.length;i++){
+   const file=files[i];
+   let meta={coords:null,createdDate:null};
+   if(typeof piexif!=="undefined"&&file.size<25*1024*1024){
+    const dataUrl=await new Promise((resolve,reject)=>{
+     const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);
     });
-    
-    const { coords: extractedCoords, createdDate } = getExifData(dataUrl);
-    const finalDate = createdDate || new Date();
-    const finalCoords = extractedCoords || deviceCoords;
-
-    const bmp = await createImageBitmap(file);
-    let w = bmp.width, h = bmp.height;
-    
-    cvs.width = w; cvs.height = h; 
-    ctx.drawImage(bmp, 0, 0, w, h);
-    
-    const blob = await generateExifBlob(cvs, 1.0, finalDate, finalCoords);
-    const item = { 
-      id: Date.now() + i, 
-      blob, 
-      stamp: "未編集", 
-      created: finalDate.toISOString(), 
-      selected: false, 
-      coords: finalCoords, 
-      saved: false, 
-      shared: false 
-    };
-    photos.unshift(item); 
-    await db.transaction("photos","readwrite").objectStore("photos").put(item);
+    meta=getExifData(dataUrl);
+   }
+   const date=meta.createdDate||new Date();
+   const coords=meta.coords||deviceCoords;
+   const bmp=await createImageBitmap(file,{imageOrientation:"from-image"});
+   const maxDim=4096;
+   const scale=Math.min(1,maxDim/Math.max(bmp.width,bmp.height));
+   cvs.width=Math.round(bmp.width*scale);cvs.height=Math.round(bmp.height*scale);
+   ctx.drawImage(bmp,0,0,cvs.width,cvs.height);
+   bmp.close?.();
+   const blob=await generateExifBlob(cvs,.95,date,coords);
+   const item={id:Date.now()+i,blob,stamp:"未編集",created:date.toISOString(),selected:false,coords,saved:false,shared:false};
+   photos.unshift(item);
+   await dbPut(item);
   }
-  e.target.value = ""; 
-  updateUI();
-  renderGallery(); 
-  openM('modalGallery');
+  e.target.value="";
+  updateUI();renderGallery();openM("modalGallery");
+  toast(`${files.length}枚読み込みました`);
+ }catch(err){console.error(err);toast("画像の読み込みに失敗しました");}
 }
 
-/* =======================================
-   5. エディタモード切替
-======================================= */
-function openEditor(id) {
-  const p = photos.find(x => x.id === id); 
-  if(!p) return;
-  editMode = true; 
-  editTargetId = id;
-  editorImg.src = URL.createObjectURL(p.blob);
-  
-  editorImg.onload = () => { 
-    cameraWrapper.style.aspectRatio = `${editorImg.naturalWidth} / ${editorImg.naturalHeight}`; 
-  };
-  
-  video.style.display = "none"; 
-  editorImg.style.display = "block";
-  document.getElementById("mainActions").style.display = "none";
-  document.getElementById("editActions").style.display = "flex";
-  document.getElementById("mainContent").classList.add("edit-mode");
-  document.getElementById("mainHeader").classList.add("edit-mode");
-  
-  syncActionButtons(true);
-  closeM('modalGallery');
-  currentStamp = null; activeShape = null; shapePos = null; updateUI();
+/* Editor */
+
+function openEditor(id){
+ const p=photos.find(x=>x.id===id);if(!p)return;
+ editMode=true;editTargetId=id;
+ if(editorObjectURL)URL.revokeObjectURL(editorObjectURL);
+ editorObjectURL=URL.createObjectURL(p.blob);
+ editorImg.src=editorObjectURL;
+ editorImg.onload=()=>{
+  cameraWrapper.style.aspectRatio=editorImg.naturalWidth+"/"+editorImg.naturalHeight;
+ };
+ video.style.display="none";editorImg.style.display="block";
+ $("mainActions").style.display="none";$("editActions").style.display="flex";
+ $("mainContent").classList.add("edit-mode");$("mainHeader").classList.add("edit-mode");
+ syncActionButtons(true);closeM("modalGallery");
+ currentStamp=null;activeShape=null;shapePos=null;updateUI();
 }
 
-function closeEditor() {
-  editMode = false; 
-  editTargetId = null;
-  video.style.display = "block"; 
-  editorImg.style.display = "none";
-  if(video.videoWidth && video.videoHeight) {
-    cameraWrapper.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+function closeEditor(){
+ editMode=false;editTargetId=null;
+ video.style.display="block";editorImg.style.display="none";
+ editorImg.removeAttribute("src");
+ if(editorObjectURL){URL.revokeObjectURL(editorObjectURL);editorObjectURL=null;}
+ setCameraAspect();
+ $("mainActions").style.display="flex";$("editActions").style.display="none";
+ $("mainContent").classList.remove("edit-mode");$("mainHeader").classList.remove("edit-mode");
+ syncActionButtons(false);currentStamp=null;activeShape=null;shapePos=null;updateUI();
+}
+
+function captureOrSave(){if(saving)return;return editMode?saveEdit():capturePhoto();}
+
+async function capturePhoto(){
+ if(!video.videoWidth)return toast("カメラ準備中です...");
+ saving=true;
+ try{
+  $("flashEffect").style.opacity="1";
+  setTimeout(()=>$("flashEffect").style.opacity="0",100);
+  const w=video.videoWidth,h=video.videoHeight;
+  cvs.width=w;cvs.height=h;ctx.drawImage(video,0,0,w,h);
+  if(currentStamp)drawStamp(ctx,currentStamp,w,h);
+  if(activeShape&&shapePos){
+   const r=cameraWrapper.getBoundingClientRect();
+   drawShape(ctx,shapePos.x*w/r.width,shapePos.y*h/r.height,w,h);
   }
-  
-  document.getElementById("mainActions").style.display = "flex";
-  document.getElementById("editActions").style.display = "none";
-  document.getElementById("mainContent").classList.remove("edit-mode");
-  document.getElementById("mainHeader").classList.remove("edit-mode");
-  
-  syncActionButtons(false);
-  currentStamp = null; activeShape = null; shapePos = null; updateUI();
+  const date=new Date(),blob=await generateExifBlob(cvs,.96,date,deviceCoords);
+  const item={id:Date.now(),blob,stamp:currentStamp||(activeShape?"図形追加":"現場写真"),created:date.toISOString(),selected:true,coords:deviceCoords,saved:false,shared:false};
+  photos.unshift(item);await dbPut(item);
+  updateUI();toast("撮影しました");
+ }catch(e){console.error(e);toast("撮影に失敗しました");}
+ finally{saving=false;}
 }
 
-function captureOrSave() {
-  if (editMode) saveEdit(); else capturePhoto();
-}
-
-async function capturePhoto() {
-  if(!video.videoWidth) return toast("カメラ準備中です...");
-  
-  const flash = document.getElementById("flashEffect");
-  flash.style.opacity = "1"; 
-  setTimeout(() => flash.style.opacity = "0", 120);
-
-  let w = video.videoWidth, h = video.videoHeight;
-  cvs.width = w; cvs.height = h; 
-  const sc = w / video.videoWidth;
-  ctx.drawImage(video, 0, 0, w, h);
-  
-  if(currentStamp) drawStamp(ctx, currentStamp, w, h);
-  if(activeShape && shapePos) {
-    const r = cameraWrapper.getBoundingClientRect();
-    const pt = { x: shapePos.x * (video.videoWidth / r.width), y: shapePos.y * (video.videoHeight / r.height) };
-    drawShape(ctx, pt.x * sc, pt.y * sc, w, h);
+async function saveEdit(){
+ if(!editTargetId||!editorImg.complete)return;
+ saving=true;
+ try{
+  const w=editorImg.naturalWidth,h=editorImg.naturalHeight;
+  cvs.width=w;cvs.height=h;ctx.drawImage(editorImg,0,0,w,h);
+  if(currentStamp)drawStamp(ctx,currentStamp,w,h);
+  if(activeShape&&shapePos){
+   const r=cameraWrapper.getBoundingClientRect();
+   drawShape(ctx,shapePos.x*w/r.width,shapePos.y*h/r.height,w,h);
   }
-  
-  const captureDate = new Date();
-  const blob = await generateExifBlob(cvs, 1.0, captureDate, deviceCoords);
-  const stampName = currentStamp || (activeShape ? "図形追加" : "現場写真");
-  const item = { id: captureDate.getTime(), blob, stamp: stampName, created: captureDate.toISOString(), selected: true, coords: deviceCoords, saved: false, shared: false };
-  photos.unshift(item); 
-  await db.transaction("photos","readwrite").objectStore("photos").put(item);
-  
-  updateUI(); 
-  toast(`最高画質で撮影しました`);
+  const p=photos.find(x=>x.id===editTargetId);if(!p)return;
+  p.blob=await generateExifBlob(cvs,.95,new Date(),p.coords||deviceCoords);
+  p.stamp=currentStamp||(activeShape?"図形追加":"編集済");
+  await dbPut(p);
+  toast("上書き保存しました");
+  closeEditor();renderGallery();openM("modalGallery");
+ }catch(e){console.error(e);toast("保存に失敗しました");}
+ finally{saving=false;}
 }
 
-async function saveEdit() {
-  const srcW = editorImg.naturalWidth, srcH = editorImg.naturalHeight;
-  cvs.width = srcW; cvs.height = srcH;
-  ctx.drawImage(editorImg, 0, 0, srcW, srcH);
+function drawStamp(ctx,txt,w,h){
+ const fz=Math.max(38,Math.round(w*.038)),pad=fz*.4,m=Math.round(w*.025);
+ ctx.font=`bold ${fz}px sans-serif`;
+ const bw=ctx.measureText(txt).width+pad*2,bh=fz+pad*2;
+ let x=m,y=m;
+ const pos=positions[stampPosIndex];
+ if(pos.includes("right"))x=w-bw-m;
+ if(pos.includes("bottom"))y=h-bh-m;
+ ctx.fillStyle="rgba(0,0,0,.85)";
+ ctx.fillRect(x,y,bw,bh);
+ ctx.strokeStyle="#fff";ctx.lineWidth=Math.max(3,w*.003);
+ ctx.strokeRect(x,y,bw,bh);
+ ctx.fillStyle="#fff";ctx.textBaseline="middle";
+ ctx.fillText(txt,x+pad,y+bh/2);
+}
 
-  if(currentStamp) drawStamp(ctx, currentStamp, srcW, srcH);
-  if(activeShape && shapePos) {
-    const r = cameraWrapper.getBoundingClientRect();
-    const pt = { x: shapePos.x * (srcW / r.width), y: shapePos.y * (srcH / r.height) };
-    drawShape(ctx, pt.x, pt.y, srcW, srcH);
+function drawShape(ctx,x,y,w,h){
+ ctx.save();ctx.translate(x,y);ctx.rotate(shapeAngle);
+ const s=Math.min(w,h)/1000*shapeScale;ctx.scale(s,s);
+ ctx.lineCap="round";ctx.lineJoin="round";
+ if(activeShape==="arrow"){
+  ctx.strokeStyle="#fff";ctx.lineWidth=24;
+  ctx.beginPath();ctx.moveTo(-60,0);ctx.lineTo(30,0);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(30,0);ctx.lineTo(0,-30);ctx.lineTo(0,30);ctx.closePath();ctx.stroke();
+  ctx.strokeStyle="#E11D48";ctx.fillStyle="#E11D48";ctx.lineWidth=14;
+  ctx.beginPath();ctx.moveTo(-60,0);ctx.lineTo(30,0);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(30,0);ctx.lineTo(0,-30);ctx.lineTo(0,30);ctx.closePath();ctx.fill();
+ }else{
+  ctx.strokeStyle="#fff";ctx.lineWidth=24;ctx.beginPath();ctx.arc(0,0,70,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle="#E11D48";ctx.lineWidth=14;ctx.beginPath();ctx.arc(0,0,70,0,Math.PI*2);ctx.stroke();
+ }
+ ctx.restore();
+}
+
+/* Gallery */
+
+function clearGalleryURLs(){
+ galleryURLs.forEach(URL.revokeObjectURL);galleryURLs=[];
+}
+
+function renderGallery(){
+ clearGalleryURLs();
+ const list=$("galleryList");list.replaceChildren();
+ $("selCount").textContent=photos.filter(p=>p.selected).length;
+ if(!photos.length){
+  list.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--text-sub);font-weight:700">保存された写真がありません</div>';
+  return;
+ }
+ const frag=document.createDocumentFragment();
+ photos.forEach(p=>{
+  const row=document.createElement("div");row.className="g-row";
+  const chk=document.createElement("input");chk.type="checkbox";chk.checked=!!p.selected;
+  chk.style.cssText="width:24px;height:24px;accent-color:var(--primary);flex-shrink:0";
+  chk.onchange=()=>{p.selected=chk.checked;$("selCount").textContent=photos.filter(x=>x.selected).length;};
+  const img=document.createElement("img");img.className="g-thumb";img.loading="lazy";img.alt="写真";
+  const url=URL.createObjectURL(p.blob);galleryURLs.push(url);img.src=url;
+  img.onclick=()=>openEditor(p.id);
+  const info=document.createElement("div");info.className="g-info";
+  const d=new Date(p.created);
+  const time=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  const title=document.createElement("strong");title.style.cssText="font-size:1rem;color:var(--text-main)";title.textContent=p.stamp||"写真";
+  const date=document.createElement("small");date.style.cssText="color:var(--text-sub)";date.textContent=time;
+  const tags=document.createElement("div");tags.className="status-tags";
+  const addBadge=(text,cls)=>{const b=document.createElement("span");b.className="status-badge "+cls;b.textContent=text;tags.appendChild(b);};
+  if(p.shared)addBadge("✅ 送信済","badge-shared");
+  if(p.saved)addBadge("⬇️ 保存済","badge-saved");
+  if(!p.shared&&!p.saved)addBadge("⬜ 未保存","badge-none");
+  info.append(title,document.createElement("br"),date,tags);
+  info.onclick=()=>openEditor(p.id);
+  row.append(chk,img,info);frag.appendChild(row);
+ });
+ list.appendChild(frag);
+}
+
+/* Save */
+
+async function saveSelectedToDevice(){
+ const sel=photos.filter(p=>p.selected);
+ if(!sel.length)return toast("写真を選択してください");
+ if(!confirm(`${sel.length}枚の画像を端末に保存しますか？`))return;
+ try{
+  const files=await Promise.all(sel.map(async(p,i)=>new File([p.blob],`現場写真_${Date.now()}_${i+1}.jpg`,{type:"image/jpeg"})));
+  if(navigator.canShare?.({files})){
+   await navigator.share({files});
+   for(const p of sel){p.saved=true;await dbPut(p);}
+  }else{
+   for(const [i,p] of sel.entries()){
+    const url=URL.createObjectURL(p.blob);
+    const a=document.createElement("a");a.href=url;a.download=`現場写真_${Date.now()}_${i+1}.jpg`;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+   }
+   toast("保存用ファイルを作成しました");
   }
-
-  const editDate = new Date();
-  const p = photos.find(x => x.id === editTargetId);
-  
-  const blob = await generateExifBlob(cvs, 0.95, editDate, p.coords || deviceCoords);
-  const stampName = currentStamp || (activeShape ? "図形追加" : "編集済");
-  
-  p.blob = blob; 
-  p.stamp = stampName;
-  await db.transaction("photos","readwrite").objectStore("photos").put(p);
-  
-  toast("上書き保存しました"); 
-  closeEditor(); 
-  renderGallery(); 
-  openM('modalGallery');
+  renderGallery();
+ }catch(e){if(e.name!=="AbortError")toast("保存処理に失敗しました");}
 }
 
-function stageToSource(sx, sy, srcW) {
-  const scale = cameraWrapper.clientWidth / srcW;
-  return { x: sx / scale, y: sy / scale };
+/* Share */
+
+async function compressForEmail(blob){
+ const bmp=await createImageBitmap(blob);
+ const maxDim=1440,scale=Math.min(1,maxDim/Math.max(bmp.width,bmp.height));
+ const w=Math.round(bmp.width*scale),h=Math.round(bmp.height*scale);
+ const c=document.createElement("canvas");c.width=w;c.height=h;
+ c.getContext("2d",{alpha:false}).drawImage(bmp,0,0,w,h);
+ bmp.close?.();
+ return canvasBlob(c,.8);
 }
 
-function drawStamp(ctx, txt, w, h) {
-  const fz = Math.max(38, Math.round(w * 0.038)), pad = fz * 0.4, m = Math.round(w * 0.025);
-  ctx.font = `bold ${fz}px sans-serif`;
-  const boxW = ctx.measureText(txt).width + pad * 2, boxH = fz + pad * 2;
-  let x = m, y = m;
-  
-  const currentPosKey = positions[stampPosIndex];
-  if(currentPosKey === "top-right") { x = w - boxW - m; y = m; }
-  else if(currentPosKey === "bottom-left") { x = m; y = h - boxH - m; }
-  else if(currentPosKey === "bottom-right") { x = w - boxW - m; y = h - boxH - m; }
-  
-  ctx.fillStyle = "rgba(0,0,0,0.85)"; 
-  ctx.lineJoin = "round"; 
-  ctx.lineWidth = 12; 
-  ctx.strokeStyle = "rgba(0,0,0,0.85)";
-  ctx.strokeRect(x+6, y+6, boxW-12, boxH-12); 
-  ctx.fillRect(x+6, y+6, boxW-12, boxH-12);
-  ctx.strokeStyle = "#fff"; 
-  ctx.lineWidth = Math.max(3, w * 0.003); 
-  ctx.strokeRect(x, y, boxW, boxH);
-  ctx.fillStyle = "#fff"; 
-  ctx.textBaseline = "middle"; 
-  ctx.fillText(txt, x + pad, y + boxH / 2);
-}
-
-function drawShape(ctx, tx, ty, w, h) {
-  ctx.save(); 
-  ctx.translate(tx, ty); 
-  ctx.rotate(shapeAngle);
-  const baseScale = (Math.min(w, h) / 1000) * shapeScale;
-  ctx.scale(baseScale, baseScale); 
-  ctx.lineCap = "round"; 
-  ctx.lineJoin = "round";
-  
-  if(activeShape === 'arrow') {
-    ctx.strokeStyle="#fff"; ctx.lineWidth=24;
-    ctx.beginPath(); ctx.moveTo(-60,0); ctx.lineTo(30,0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(30,0); ctx.lineTo(0,-30); ctx.lineTo(0,30); ctx.closePath(); ctx.stroke();
-    ctx.strokeStyle="#E11D48"; ctx.fillStyle="#E11D48"; ctx.lineWidth=14;
-    ctx.beginPath(); ctx.moveTo(-60,0); ctx.lineTo(30,0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(30,0); ctx.lineTo(0,-30); ctx.lineTo(0,30); ctx.closePath(); ctx.fill();
-  } else {
-    ctx.strokeStyle="#fff"; ctx.lineWidth=24; ctx.beginPath(); ctx.arc(0,0,70,0,Math.PI*2); ctx.stroke();
-    ctx.strokeStyle="#E11D48"; ctx.lineWidth=14; ctx.beginPath(); ctx.arc(0,0,70,0,Math.PI*2); ctx.stroke();
+async function executeShare(){
+ const sel=photos.filter(p=>p.selected);
+ if(!sel.length)return toast("写真が選択されていません");
+ const btn=$("btnExecSend");btn.disabled=true;
+ try{
+  toast("写真を圧縮しています...");
+  const email=$("sendEmail").value.trim();
+  const num=$("sendJobNum").value.trim()||"未入力";
+  localStorage.setItem("defEmail",email);
+  if(email){
+   try{await navigator.clipboard.writeText(email);}catch(e){}
   }
-  ctx.restore();
-}
-
-function renderGallery() {
-  const list = document.getElementById("galleryList"); 
-  list.innerHTML = "";
-  document.getElementById("selCount").textContent = photos.filter(p => p.selected).length;
-  if(!photos.length) { 
-    list.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text-sub); font-weight:700;">保存された写真がありません</div>`; 
-    return; 
-  }
-  
-  photos.forEach(p => {
-    const row = document.createElement("div"); row.className = "g-row";
-    
-    const chk = document.createElement("input"); 
-    chk.type = "checkbox"; chk.checked = p.selected; 
-    chk.style.width="24px"; chk.style.height="24px"; chk.style.accentColor="var(--primary)";
-    chk.onchange = () => { p.selected = chk.checked; document.getElementById("selCount").textContent = photos.filter(x=>x.selected).length; };
-    
-    const img = document.createElement("img"); 
-    img.className = "g-thumb"; img.src = URL.createObjectURL(p.blob);
-    img.onclick = () => openEditor(p.id);
-    
-    const info = document.createElement("div"); 
-    info.className = "g-info";
-    const d = new Date(p.created);
-    const timeStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-    
-    let statusHtml = '<div class="status-tags">';
-    if (p.shared) statusHtml += '<span class="status-badge badge-shared">✅ 送信済</span>';
-    if (p.saved) statusHtml += '<span class="status-badge badge-saved">⬇️ 保存済</span>';
-    if (!p.shared && !p.saved) statusHtml += '<span class="status-badge badge-none">⬜︎ 未保存</span>';
-    statusHtml += '</div>';
-
-    info.innerHTML = `<strong style="font-size:1rem; color:var(--text-main);">${p.stamp}</strong><br><small style="color:var(--text-sub);">${timeStr}</small>${statusHtml}`;
-    info.onclick = () => openEditor(p.id);
-    
-    row.append(chk, img, info); 
-    list.appendChild(row);
+  let text=`【写真種別】\n${sendSelectedType}\n\n【案件名・受付番号】\n${num}\n\n`;
+  sel.forEach((p,i)=>{
+   const d=new Date(p.created);
+   const time=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+   text+=`■ 写真 ${i+1} (${p.stamp} - ${time})\n`;
+   text+=p.coords?`Googleマップ: https://maps.google.com/?q=${p.coords.lat},${p.coords.lng}\n\n`:"Googleマップ: 位置情報なし\n\n";
   });
-}
-
-async function compressForEmail(blob) {
-  const bmp = await createImageBitmap(blob);
-  let w = bmp.width, h = bmp.height;
-  
-  const maxDim = 1440;
-  if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; } 
-  else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
-  
-  const c = document.createElement("canvas");
-  c.width = w; c.height = h;
-  const cx = c.getContext("2d");
-  cx.drawImage(bmp, 0, 0, w, h);
-  
-  return await generateExifBlob(c, 0.8, new Date(), deviceCoords);
-}
-
-// 送信機能
-async function executeShare() {
-  const sel = photos.filter(p => p.selected); 
-  if(!sel.length) return toast("写真が選択されていません");
-  
-  toast("圧縮の準備をしています...");
-  
-  const email = document.getElementById("sendEmail").value.trim();
-  const num = document.getElementById("sendJobNum").value.trim() || "未入力";
-  localStorage.setItem("defEmail", email);
-  
-  if(email) { try { await navigator.clipboard.writeText(email); } catch(e) {} }
-
-  let text = `【写真種別】\n${sendSelectedType}\n\n`;
-  text += `【案件名・受付番号】\n${num}\n\n`;
-  
-  sel.forEach((p, idx) => {
-    const d = new Date(p.created);
-    const timeStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-    text += `■ 写真 ${idx + 1} (${p.stamp} - ${timeStr})\n`;
-    if(p.coords) {
-      text += `Googleマップ: https://maps.google.com/?q=${p.coords.lat},${p.coords.lng}\n\n`;
-    } else {
-      text += `Googleマップ: 位置情報なし（GPS未取得時に撮影）\n\n`;
-    }
-  });
-  
-  const files = await Promise.all(sel.map(async (p, i) => {
-    const compressedBlob = await compressForEmail(p.blob);
-    return new File([await compressedBlob.arrayBuffer()], `現場写真_${Date.now()}_${i+1}.jpg`, {type:"image/jpeg"});
-  }));
-  
-  if(navigator.canShare && navigator.canShare({files})) {
-    setTimeout(async () => {
-      try { 
-        await navigator.share({text, files}); 
-        sel.forEach(p => {
-          p.shared = true;
-          db.transaction("photos","readwrite").objectStore("photos").put(p);
-        });
-        renderGallery();
-      } catch(e){}
-    }, email ? 800 : 0);
-  } else {
-    toast("共有機能がサポートされていません");
+  const files=[];
+  for(let i=0;i<sel.length;i++){
+   const blob=await compressForEmail(sel[i].blob);
+   files.push(new File([blob],`現場写真_${Date.now()}_${i+1}.jpg`,{type:"image/jpeg"}));
   }
+  if(!navigator.canShare?.({files}))return toast("この端末ではファイル共有に対応していません");
+  await navigator.share({title:`${num} 現場写真`,text,files});
+  for(const p of sel){p.shared=true;await dbPut(p);}
+  renderGallery();
+ }catch(e){if(e.name!=="AbortError"){console.error(e);toast("共有処理に失敗しました");}}
+ finally{btn.disabled=false;}
 }
 
-let customStamps = [];
-function loadSettings() {
-  customStamps = JSON.parse(localStorage.getItem("customStamps")) || [];
-  document.getElementById("sendEmail").value = localStorage.getItem("defEmail") || "";
+/* Custom stamps */
+
+function loadSettings(){
+ try{customStamps=JSON.parse(localStorage.getItem("customStamps")||"[]");}catch(e){customStamps=[];}
+ $("sendEmail").value=localStorage.getItem("defEmail")||"";
 }
 
-function renderCustomStamps() {
-  const list = document.getElementById("customStampList"); 
-  list.innerHTML = "";
-  if(!customStamps.length) list.innerHTML = "<div style='color:var(--text-sub); font-size:0.85rem; font-weight:700;'>カスタムスタンプはありません</div>";
-  customStamps.forEach((t, i) => {
-    const row = document.createElement("div"); row.style.display="flex"; row.style.gap="8px";
-    const btn = document.createElement("button"); btn.className = "tool-btn"; btn.style.flex="1"; btn.textContent = t;
-    btn.onclick = () => { currentStamp = t; updateUI(); closeM('modalStamp'); };
-    const del = document.createElement("button"); del.className = "icon-btn"; del.innerHTML = `<svg class="icon" viewBox="0 0 24 24" style="color:var(--primary);"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
-    del.onclick = () => { customStamps.splice(i, 1); localStorage.setItem("customStamps", JSON.stringify(customStamps)); renderCustomStamps(); };
-    row.append(btn, del); 
-    list.appendChild(row);
-  });
+function renderCustomStamps(){
+ const list=$("customStampList");list.replaceChildren();
+ if(!customStamps.length){
+  const empty=document.createElement("div");empty.style.cssText="color:var(--text-sub);font-size:.85rem;font-weight:700";empty.textContent="カスタムスタンプはありません";list.appendChild(empty);return;
+ }
+ customStamps.forEach((t,i)=>{
+  const row=document.createElement("div");row.style.cssText="display:flex;gap:8px";
+  const btn=document.createElement("button");btn.className="tool-btn";btn.style.flex="1";btn.textContent=t;
+  btn.onclick=()=>{currentStamp=t;updateUI();closeM("modalStamp");};
+  const del=document.createElement("button");del.className="icon-btn";del.textContent="🗑";
+  del.onclick=()=>{customStamps.splice(i,1);localStorage.setItem("customStamps",JSON.stringify(customStamps));renderCustomStamps();};
+  row.append(btn,del);list.appendChild(row);
+ });
 }
 
-function addCustomStamp() {
-  const v = document.getElementById("newStampText").value.trim(); 
-  if(!v) return;
-  customStamps.push(v); 
-  localStorage.setItem("customStamps", JSON.stringify(customStamps));
-  document.getElementById("newStampText").value = ""; 
-  renderCustomStamps();
+function addCustomStamp(){
+ const input=$("newStampText"),v=input.value.trim();
+ if(!v)return;
+ if(v.length>30)return toast("スタンプは30文字以内にしてください");
+ if(customStamps.includes(v))return toast("同じスタンプが登録されています");
+ customStamps.push(v);localStorage.setItem("customStamps",JSON.stringify(customStamps));
+ input.value="";renderCustomStamps();
 }
 
-function openM(id) { document.getElementById(id).classList.add("show"); }
-function closeM(id) { document.getElementById(id).classList.remove("show"); }
-let tTmr; function toast(msg) { const t=document.getElementById("toast"); t.innerHTML=msg; t.style.display="block"; clearTimeout(tTmr); tTmr=setTimeout(()=>t.style.display="none",3000); }
+function openM(id){$(id).classList.add("show");}
+function closeM(id){$(id).classList.remove("show");}
+
+function toast(msg){
+ const t=$("toast");t.textContent=msg;t.style.display="block";
+ clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.style.display="none",2800);
+}
+
+document.addEventListener("visibilitychange",()=>{
+ if(document.hidden)return;
+ if(!editMode&&stream&&!video.srcObject){
+  video.srcObject=stream;video.play().catch(()=>{});
+ }
+});
+
+window.addEventListener("pagehide",()=>{
+ if(gpsWatchId!==null)navigator.geolocation?.clearWatch(gpsWatchId);
+});
 </script>
 </body>
 </html>
